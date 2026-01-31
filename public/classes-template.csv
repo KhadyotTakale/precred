@@ -1,0 +1,3 @@
+title,description,slug,tags,SEO_Tags,name,educationalLevel,duration,startDate,endDate,capacity,location,registrationUrl,instructorName,instructorEmail
+"Beginning Lapidary","Learn the basics of cutting and polishing stones",beginning-lapidary,"lapidary,beginner,stones","lapidary class, stone cutting, beginner","Beginning Lapidary Class",Beginner,PT3H,2025-02-01,2025-02-01,15,"Club Workshop Room",https://example.com/register,"John Smith",john@example.com
+"Advanced Faceting","Master the art of precision gem cutting",advanced-faceting,"faceting,advanced,gems","faceting class, gem cutting, advanced","Advanced Faceting Workshop",Advanced,PT4H,2025-02-15,2025-02-15,10,"Club Workshop Room",https://example.com/register,"Jane Doe",jane@example.com
