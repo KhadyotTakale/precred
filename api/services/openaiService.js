@@ -91,6 +91,28 @@ Output format — use this exact structure every time:
 
 Be concise but thorough. If data is insufficient, clearly say so and ask for specific missing items.`;
 
+export const extractEntityInfo = async (text) => {
+  if (!process.env.OPENAI_API_KEY) {
+    console.error("OpenAI API Key is missing for extraction");
+    return null;
+  }
+
+  try {
+    const completion = await openai.chat.completions.create({
+      messages: [
+        { role: "system", content: "You are a precise data extractor. Extract the following from the document text:\n1. Company Name (or Proprietor Name)\n2. Location (City/State)\n3. Industry/Business Type\n4. Key Products/Services mentioned\n\nReturn JSON: { \"companyName\": \"...\", \"location\": \"...\", \"industry\": \"...\", \"products\": \"...\" }" },
+        { role: "user", content: `Text: ${text.substring(0, 4000)}` }
+      ],
+      model: "gpt-3.5-turbo",
+      response_format: { type: "json_object" }
+    });
+    return JSON.parse(completion.choices[0].message.content);
+  } catch (error) {
+    console.error("Entity extraction failed:", error);
+    return null;
+  }
+};
+
 export const analyzeDocument = async (text) => {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OpenAI API Key is missing');

@@ -79,8 +79,26 @@ router.post('/upload', upload.any(), async (req, res) => {
             });
         }
 
-        // Phase 2: Analyze with AI
+        // Phase 2: Analyze with AI & Tavily Search
         console.log('Analyzing documents with AI...');
+
+        // 2a. Extract Entity Info for Digital Footprint Search
+        let entityInfo = null;
+        let searchResults = [];
+        try {
+            const { extractEntityInfo } = await import('../services/openaiService.js');
+            const { performSearch } = await import('../services/tavilyService.js');
+
+            entityInfo = await extractEntityInfo(combinedText);
+            if (entityInfo && entityInfo.companyName) {
+                console.log(`Searching for entity: ${entityInfo.companyName} (${entityInfo.location})`);
+                const query = `${entityInfo.companyName} ${entityInfo.location || ''} ${entityInfo.products || ''} official website social media linkedin projects products`;
+                searchResults = await performSearch(query);
+            }
+        } catch (e) {
+            console.error("Digital footprint search failed:", e);
+        }
+
         const analysis = await analyzeDocument(combinedText);
 
         // Cleanup: Delete uploaded files after analysis
@@ -95,7 +113,9 @@ router.post('/upload', upload.any(), async (req, res) => {
         res.status(200).json({
             message: 'Files uploaded and analyzed successfully',
             files: fileDetails,
-            analysis: analysis
+            analysis: analysis,
+            entityInfo,
+            searchResults
         });
     } catch (error) {
         console.error('Upload/Analysis error:', error);

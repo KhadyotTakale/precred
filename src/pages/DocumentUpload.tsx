@@ -26,6 +26,10 @@ const DocumentUpload = () => {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [analysis, setAnalysis] = useState<string | null>(null);
+    const [digitalFootprint, setDigitalFootprint] = useState<{
+        entityInfo: { companyName: string; location: string } | null;
+        searchResults: any[];
+    } | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isSaved, setIsSaved] = useState(false);
 
@@ -80,6 +84,12 @@ const DocumentUpload = () => {
             const data = await response.json();
             if (data.analysis) {
                 setAnalysis(data.analysis);
+                if (data.entityInfo || data.searchResults) {
+                    setDigitalFootprint({
+                        entityInfo: data.entityInfo,
+                        searchResults: data.searchResults || []
+                    });
+                }
                 toast.success("Analysis complete! Please review and save the application.");
             } else {
                 toast.error("Analysis data missing from response.");
@@ -239,8 +249,10 @@ const DocumentUpload = () => {
                 {analysis ? (
                     <AnalysisResult
                         analysis={analysis}
+                        digitalFootprint={digitalFootprint}
                         onReset={() => {
                             setAnalysis(null);
+                            setDigitalFootprint(null);
                             setIsSaved(false);
                         }}
                         onSave={handleSaveApplication}

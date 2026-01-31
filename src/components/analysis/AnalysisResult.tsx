@@ -14,19 +14,28 @@ import {
     CalendarDays,
     Wallet,
     AlertTriangle,
-    Download
+    Download,
+    Globe,
+    MapPin,
+    Search,
+    ExternalLink,
+    Briefcase
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 
 interface AnalysisResultProps {
     analysis: string;
+    digitalFootprint?: {
+        entityInfo: { companyName: string; location: string } | null;
+        searchResults: any[];
+    } | null;
     onReset: () => void;
     onSave?: () => void;
     isSaving?: boolean;
     isSaved?: boolean;
 }
 
-export const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, onReset, onSave, isSaving = false, isSaved = false }) => {
+export const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, digitalFootprint, onReset, onSave, isSaving = false, isSaved = false }) => {
 
     // Extract metrics from the analysis text
     const extractedMetrics = useMemo(() => {
@@ -180,28 +189,92 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, onRese
                     </Card>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card className="border-emerald-100 bg-emerald-50/50">
-                            <CardHeader className="pb-3">
-                                <CardTitle className="text-base text-emerald-800 flex items-center gap-2">
-                                    <TrendingUp className="w-4 h-4" />
-                                    Key Strengths
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <ul className="space-y-2 text-sm text-emerald-900">
-                                    <li className="flex gap-2">
-                                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                                        <span>Consistent repayment history observed in bank statements.</span>
-                                    </li>
-                                    <li className="flex gap-2">
-                                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                                        <span>Stable cash flow with regular deposits.</span>
-                                    </li>
-                                </ul>
-                            </CardContent>
-                        </Card>
+                        {/* Left Column: Key Strengths + Digital Footprint */}
+                        <div className="space-y-6">
+                            <Card className="border-emerald-100 bg-emerald-50/50">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="text-base text-emerald-800 flex items-center gap-2">
+                                        <TrendingUp className="w-4 h-4" />
+                                        Key Strengths
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <ul className="space-y-2 text-sm text-emerald-900">
+                                        <li className="flex gap-2">
+                                            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                            <span>Consistent repayment history observed in bank statements.</span>
+                                        </li>
+                                        <li className="flex gap-2">
+                                            <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                                            <span>Stable cash flow with regular deposits.</span>
+                                        </li>
+                                    </ul>
+                                </CardContent>
+                            </Card>
 
-                        <Card className="border-amber-100 bg-amber-50/50">
+                            {/* Digital Footprint Section - Below Key Strengths */}
+                            {digitalFootprint && (
+                                <Card className="border-blue-100 bg-blue-50/50">
+                                    <CardHeader className="pb-3">
+                                        <CardTitle className="text-base text-blue-800 flex items-center gap-2">
+                                            <Globe className="w-4 h-4" />
+                                            Digital Footprint
+                                        </CardTitle>
+                                        <CardDescription className="text-xs">
+                                            {digitalFootprint.entityInfo?.companyName || "Entity"}
+                                            {digitalFootprint.entityInfo?.location && ` • ${digitalFootprint.entityInfo.location}`}
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="space-y-4">
+                                        {/* Location */}
+                                        {digitalFootprint.entityInfo?.location && (
+                                            <div className="flex items-center gap-2 text-sm">
+                                                <MapPin className="w-4 h-4 text-blue-600" />
+                                                <span className="text-slate-700">{digitalFootprint.entityInfo.location}</span>
+                                            </div>
+                                        )}
+
+                                        {/* Search Results Count */}
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <Search className="w-4 h-4 text-blue-600" />
+                                            <span className="text-slate-700">{digitalFootprint.searchResults.length} web sources found</span>
+                                        </div>
+
+                                        {/* Results List */}
+                                        {digitalFootprint.searchResults.length > 0 && (
+                                            <div className="space-y-2 pt-2 border-t border-blue-100">
+                                                <h4 className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                                                    <Briefcase className="w-3 h-3" />
+                                                    Projects & Social Presence
+                                                </h4>
+                                                <div className="space-y-2">
+                                                    {digitalFootprint.searchResults.slice(0, 3).map((result, idx) => (
+                                                        <a
+                                                            key={idx}
+                                                            href={result.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="block p-2 rounded bg-white border border-blue-100 hover:border-blue-300 transition-colors"
+                                                        >
+                                                            <div className="flex items-center gap-1 mb-1">
+                                                                <span className="text-xs text-blue-600 font-medium">
+                                                                    {new URL(result.url).hostname.replace('www.', '')}
+                                                                </span>
+                                                                <ExternalLink className="w-3 h-3 text-slate-400" />
+                                                            </div>
+                                                            <p className="text-xs text-slate-700 font-medium line-clamp-1">{result.title}</p>
+                                                        </a>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </div>
+
+                        {/* Right Column: Risk Factors */}
+                        <Card className="border-amber-100 bg-amber-50/50 h-fit">
                             <CardHeader className="pb-3">
                                 <CardTitle className="text-base text-amber-800 flex items-center gap-2">
                                     <AlertTriangle className="w-4 h-4" />
