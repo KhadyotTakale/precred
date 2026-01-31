@@ -32,6 +32,10 @@ import {
 } from "lucide-react";
 import DocumentUpload from "./DocumentUpload";
 import { adminAPI, type Order, type DashboardAnalyticsResponse } from "@/lib/admin-api";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area
+} from "recharts";
 import { useToast } from "@/hooks/use-toast";
 
 // Types
@@ -1116,6 +1120,484 @@ const Admin = () => {
     </div>
   );
 
+  // Analytics View using real data
+  const renderAnalytics = () => {
+    // 1. Revenue Trends (Monthly)
+    // Group applications by month and sum up revenue
+    const revenueData = applications
+      .filter(app => app.created_at)
+      .reduce((acc: any[], app) => {
+        const date = new Date(app.created_at);
+        const month = date.toLocaleString('default', { month: 'short' });
+        const revenue = app._booking_items_of_bookings?.items?.[0]?.price || 0;
+
+        const existingMonth = acc.find(d => d.name === month);
+        if (existingMonth) {
+          existingMonth.revenue += revenue;
+          existingMonth.applications += 1;
+        } else {
+          acc.push({ name: month, revenue: revenue, applications: 1 });
+        }
+        return acc;
+      }, [])
+      .sort((a, b) => { // Sort vaguely by month (this simple sort assumes current year)
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        return months.indexOf(a.name) - months.indexOf(b.name);
+      });
+
+    // 2. Loan Product Distribution
+    // Group by item_type or item_name
+    const productData = applications
+      .reduce((acc: any[], app) => {
+        const type = app._items?.item_type || app.booking_type || "Other";
+        const existingType = acc.find(d => d.name === type);
+        if (existingType) {
+          existingType.value += 1;
+        } else {
+          acc.push({ name: type, value: 1 });
+        }
+        return acc;
+      }, []);
+
+    // Sort by count
+    productData.sort((a, b) => b.value - a.value);
+
+    // 3. Application Status Distribution
+    const statusData = applications.reduce((acc: any[], app) => {
+      const status = app.status || "Unknown";
+      const existingStatus = acc.find(s => s.name === status);
+      if (existingStatus) {
+        existingStatus.value += 1;
+      } else {
+        acc.push({ name: status, value: 1 });
+      }
+      return acc;
+    }, []);
+
+    const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
+
+    if (loading) {
+      return (
+        <div className="space-y-6">
+          <Skeleton className="h-[400px] w-full" />
+          <div className="grid grid-cols-2 gap-6">
+            <Skeleton className="h-[300px] w-full" />
+            <Skeleton className="h-[300px] w-full" />
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        <h2 className="text-xl font-semibold text-slate-900">Financial Analytics</h2>
+
+        {/* Revenue Chart */}
+        <Card className="border-0 shadow-sm bg-white">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-slate-900">Revenue Trend</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[350px] w-full">
+              {revenueData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={revenueData}>
+                    <defs>
+                      <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.8} />
+                        <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                    <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value / 1000}k`} />
+                    <Tooltip
+                      formatter={(value: number) => [`₹${value}`, 'Revenue']}
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    />
+                    <Area type="monotone" dataKey="revenue" stroke="#4f46e5" fillOpacity={1} fill="url(#colorRevenue)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                  <BarChart3 className="h-12 w-12 mb-2 opacity-50" />
+                  <p>No revenue data available</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Product Distribution */}
+          <Card className="border-0 shadow-sm bg-white">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold text-slate-900">Loan Product Distribution</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full">
+                {productData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={productData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {productData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                    <Layers className="h-10 w-10 mb-2 opacity-50" />
+                    <p>No product data available</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Application Status */}
+          <Card className="border-0 shadow-sm bg-white">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold text-slate-900">Application Status Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full">
+                {statusData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={statusData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" width={100} axisLine={false} tickLine={false} />
+                      <Tooltip cursor={{ fill: 'transparent' }} />
+                      <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                    <Activity className="h-10 w-10 mb-2 opacity-50" />
+                    <p>No status data available</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  };
+
+  // Analyst Workspace View
+  const renderAnalystWorkspace = () => {
+    // Filter for pending/in-progress applications (mock logic for demo: all are tasks)
+    const myTasks = applications.filter(app => app.status !== "Approved" && app.status !== "Rejected");
+    const pendingCount = myTasks.length;
+    const urgentCount = myTasks.filter(t => t.id % 2 !== 0).length; // Mock "urgent" logic
+
+    return (
+      <div className="space-y-6">
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="bg-blue-50 border-blue-100 shadow-sm">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600">Pending Review</p>
+                <h3 className="text-2xl font-bold text-blue-900">{pendingCount}</h3>
+              </div>
+              <div className="bg-blue-100 p-2 rounded-lg">
+                <FileText className="h-5 w-5 text-blue-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-amber-50 border-amber-100 shadow-sm">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-amber-600">Urgent Cases</p>
+                <h3 className="text-2xl font-bold text-amber-900">{urgentCount}</h3>
+              </div>
+              <div className="bg-amber-100 p-2 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-purple-50 border-purple-100 shadow-sm">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-600">Approved Today</p>
+                <h3 className="text-2xl font-bold text-purple-900">12</h3>
+              </div>
+              <div className="bg-purple-100 p-2 rounded-lg">
+                <CheckCircle2 className="h-5 w-5 text-purple-600" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-green-50 border-green-100 shadow-sm">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600">Review Efficiency</p>
+                <h3 className="text-2xl font-bold text-green-900">94%</h3>
+              </div>
+              <div className="bg-green-100 p-2 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-green-600" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Main Task List */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-slate-900">My Tasks</h3>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" className="h-8 gap-2">
+                  <Filter className="h-3.5 w-3.5" />
+                  Filter
+                </Button>
+                <Button variant="outline" size="sm" className="h-8 gap-2">
+                  <ArrowUpRight className="h-3.5 w-3.5" />
+                  Sort
+                </Button>
+              </div>
+            </div>
+
+            <Card className="border-0 shadow-sm bg-white">
+              <CardContent className="p-0">
+                {myTasks.length > 0 ? (
+                  <div className="divide-y divide-slate-100">
+                    {myTasks.slice(0, 5).map((task) => (
+                      <div key={task.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center justify-between group">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${task.id % 2 === 0 ? "bg-blue-100 text-blue-600" : "bg-amber-100 text-amber-600"
+                            }`}>
+                            <Briefcase className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-slate-900">
+                              {task._items?.title || task._items?.item_name || `Application #${task.id}`}
+                            </h4>
+                            <div className="flex items-center gap-2 text-sm text-slate-500">
+                              <span>Applied {new Date(task.created_at).toLocaleDateString()}</span>
+                              <span>•</span>
+                              <span className={task.id % 2 === 0 ? "" : "text-amber-600 font-medium"}>
+                                {task.id % 2 === 0 ? "Normal Priority" : "High Priority"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="bg-slate-50">
+                            {task.status || "Pending"}
+                          </Badge>
+                          <Button size="sm" variant="ghost" className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => {
+                              setActiveView("applications");
+                              // Ideally set filter or scroll to this app
+                            }}
+                          >
+                            Review
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-slate-500">
+                    <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-3" />
+                    <p>All caught up! No pending tasks.</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Side Panel: Notes & Reminders */}
+          <div className="space-y-6">
+            <Card className="border-0 shadow-sm bg-white h-full">
+              <CardHeader>
+                <CardTitle className="text-base">Analyst Notes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-100 text-sm">
+                    <p className="font-medium text-yellow-800 mb-1">Verify GST Returns</p>
+                    <p className="text-yellow-700">Check Q3 filings for Application #1245 before approval.</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 text-sm">
+                    <p className="font-medium text-slate-800 mb-1">Team Meeting</p>
+                    <p className="text-slate-600">Credit policy review at 4 PM today.</p>
+                  </div>
+                  <Button variant="outline" className="w-full border-dashed gap-2 text-slate-500 hover:text-slate-700">
+                    <PlusCircle className="h-4 w-4" />
+                    Add Note
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Outcomes View
+  const renderOutcomes = () => {
+    // Derived stats
+    const totalDecisions = applications.filter(app => app.status === "Approved" || app.status === "Rejected").length;
+    const approvals = applications.filter(app => app.status === "Approved").length;
+    const rejections = applications.filter(app => app.status === "Rejected").length;
+    const approvalRate = totalDecisions > 0 ? Math.round((approvals / totalDecisions) * 100) : 0;
+
+    // Mock Rejection Data (since API doesn't give specific reasons yet)
+    const rejectionReasons = [
+      { name: 'Low Credit Score', value: 35 },
+      { name: 'High DTI Ratio', value: 25 },
+      { name: 'Policy Mismatch', value: 20 },
+      { name: 'Incomplete Docs', value: 15 },
+      { name: 'Other', value: 5 },
+    ];
+
+    const COLORS_REJECT = ['#ef4444', '#f97316', '#eab308', '#64748b', '#94a3b8'];
+
+    return (
+      <div className="space-y-6">
+        <h2 className="text-xl font-semibold text-slate-900">Outcomes & Learning</h2>
+
+        {/* Funnel Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="bg-slate-50 border-slate-200">
+            <CardContent className="p-4">
+              <p className="text-sm font-medium text-slate-500">Total Decisions</p>
+              <h3 className="text-2xl font-bold text-slate-900 mt-1">{totalDecisions}</h3>
+            </CardContent>
+          </Card>
+          <Card className="bg-green-50 border-green-200">
+            <CardContent className="p-4">
+              <p className="text-sm font-medium text-green-600">Approved</p>
+              <h3 className="text-2xl font-bold text-green-900 mt-1">{approvals}</h3>
+              <p className="text-xs text-green-700 mt-1">{approvalRate}% Rate</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-red-50 border-red-200">
+            <CardContent className="p-4">
+              <p className="text-sm font-medium text-red-600">Rejected</p>
+              <h3 className="text-2xl font-bold text-red-900 mt-1">{rejections}</h3>
+              <p className="text-xs text-red-700 mt-1">{100 - approvalRate}% Rate</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="p-4">
+              <p className="text-sm font-medium text-blue-600">Avg Decision Time</p>
+              <h3 className="text-2xl font-bold text-blue-900 mt-1">4.2 Hrs</h3>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Rejection Analysis */}
+          <Card className="border-0 shadow-sm bg-white">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold text-slate-900">Rejection Analysis</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full flex">
+                <div className="w-1/2 h-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={rejectionReasons}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {rejectionReasons.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS_REJECT[index % COLORS_REJECT.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="w-1/2 flex flex-col justify-center space-y-3">
+                  {rejectionReasons.map((reason, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS_REJECT[idx] }} />
+                        <span className="text-slate-600">{reason.name}</span>
+                      </div>
+                      <span className="font-medium text-slate-900">{reason.value}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Recent Decisions List */}
+          <Card className="border-0 shadow-sm bg-white">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold text-slate-900">Recent Decisions</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y divide-slate-100">
+                {applications
+                  .filter(app => app.status === "Approved" || app.status === "Rejected")
+                  .slice(0, 5)
+                  .map(app => (
+                    <div key={app.id} className="p-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${app.status === "Approved" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"
+                          }`}>
+                          {app.status === "Approved" ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">
+                            {app._items?.title || app._items?.item_name || `App #${app.id}`}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            Decided on {new Date(app.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant={app.status === "Approved" ? "default" : "destructive"} className={
+                        app.status === "Approved" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"
+                      }>
+                        {app.status}
+                      </Badge>
+                    </div>
+                  ))}
+                {totalDecisions === 0 && (
+                  <div className="p-8 text-center text-slate-500">
+                    <p>No decision history available yet.</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  };
+
   // Placeholder views
   const renderPlaceholder = (title: string) => (
     <div className="flex items-center justify-center h-96">
@@ -1135,9 +1617,9 @@ const Admin = () => {
       case "schemes": return renderSchemes();
       case "dsa-quality": return renderDSAQuality();
       case "settings": return renderSettings();
-      case "analytics": return renderPlaceholder("Financial Analytics");
-      case "workspace": return renderPlaceholder("Analyst Workspace");
-      case "outcomes": return renderPlaceholder("Outcomes & Learning");
+      case "analytics": return renderAnalytics();
+      case "workspace": return renderAnalystWorkspace();
+      case "outcomes": return renderOutcomes();
       default: return renderDashboard();
     }
   };
