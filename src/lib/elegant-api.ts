@@ -80,7 +80,7 @@ class ElegantAPI {
     try {
       const userIdToUse = clerkUserId || this.clerkUserId;
       const headers = this.getHeaders(false, userIdToUse || undefined);
-      
+
       const response = await fetch(`${ELEGANT_BASE_URL}/auth/me`, {
         method: 'GET',
         headers,
@@ -92,7 +92,7 @@ class ElegantAPI {
 
       const data = await response.json();
       this.apiToken = data.authToken || data.apiToken || data.token || data.access_token;
-      
+
       if (!this.apiToken) {
         throw new Error('No API token received from authentication');
       }
@@ -111,7 +111,7 @@ class ElegantAPI {
     rateLimitOptions?: { priority?: number; bypassQueue?: boolean }
   ): Promise<T> {
     const userIdToUse = clerkUserId || this.clerkUserId || undefined;
-    
+
     if (!this.apiToken) {
       await this.authenticate(userIdToUse);
     }
@@ -203,7 +203,7 @@ class ElegantAPI {
       email,
       Full_name: fullName,
     }, clerkUserId);
-    
+
     // Immediately fetch the customer data after creation/update
     return this.getCustomer(clerkUserId);
   }
@@ -246,7 +246,7 @@ class ElegantAPI {
     payload: Record<string, any>;
   }): Promise<{ id?: number; success?: boolean }> {
     const CRM_API_URL = 'https://xv5d-psj5-v8tj.n7e.xano.io/api:K7PwNcIM/lead_new';
-    
+
     const response = await fetch(CRM_API_URL, {
       method: 'POST',
       headers: {
@@ -266,7 +266,7 @@ class ElegantAPI {
 
     return response.json();
   }
-  
+
   async getImages(search: string = "", page: number = 1, perPage: number = 25, itemType?: string): Promise<ImagesResponse> {
     const externalParams = { page, perPage };
     let url = `/images?external=${encodeURIComponent(JSON.stringify(externalParams))}&search=${encodeURIComponent(search)}`;
@@ -310,13 +310,13 @@ class ElegantAPI {
     const externalParams = {
       page: page
     };
-    
+
     // Use items_by_type endpoint for filtering by type
     if (itemType) {
       const endpoint = `/items_by_type/${itemType}?external=${encodeURIComponent(JSON.stringify(externalParams))}`;
       return this.get<PublicItemsResponse>(endpoint);
     }
-    
+
     // Fallback to generic items endpoint if no type specified
     const endpoint = `/items?external=${encodeURIComponent(JSON.stringify(externalParams))}`;
     return this.get<PublicItemsResponse>(endpoint);
@@ -373,13 +373,13 @@ class ElegantAPI {
         };
       };
       quantity: number;
-    }>, 
+    }>,
     successUrl: string,
     cancelUrl: string,
     clerkUserId?: string,
     mode: 'payment' | 'subscription' = 'payment',
     bookingsId?: number
-  ): Promise<{ id: string; url: string; [key: string]: any }> {
+  ): Promise<{ id: string; url: string;[key: string]: any }> {
     await this.authenticate();
 
     const headers: HeadersInit = {
@@ -446,7 +446,7 @@ class ElegantAPI {
 
   async clearCart(clerkUserId: string): Promise<any> {
     const cartItemsResponse = await this.getCartItems(clerkUserId);
-    const deletePromises = cartItemsResponse.items.map((item: any) => 
+    const deletePromises = cartItemsResponse.items.map((item: any) =>
       this.deleteCartItem(clerkUserId, item.id)
     );
     return Promise.all(deletePromises);
@@ -508,14 +508,14 @@ class ElegantAPI {
     } = {}
   ): Promise<BookingsResponse> {
     const queryParams = new URLSearchParams();
-    
+
     // Use external parameter for pagination
     const external = JSON.stringify({
       page: params.page || 1,
       perPage: params.perPage || 25
     });
     queryParams.append('external', external);
-    
+
     if (params.booking_type) queryParams.append('booking_type', params.booking_type);
     if (params.items_type) queryParams.append('items_type', params.items_type);
     if (params.status) queryParams.append('status', params.status);
@@ -523,7 +523,7 @@ class ElegantAPI {
     if (params.start_date) queryParams.append('start_date', params.start_date);
     if (params.end_date) queryParams.append('end_date', params.end_date);
     if (params.booking_slug) queryParams.append('booking_slug', params.booking_slug);
-    
+
     return this.get<BookingsResponse>(`/applications?${queryParams.toString()}`, clerkUserId);
   }
 

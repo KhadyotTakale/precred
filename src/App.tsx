@@ -62,8 +62,9 @@ const MemberOrders = lazy(() => import("./pages/MemberPortal/Orders"));
 const MemberMembership = lazy(() => import("./pages/MemberPortal/Membership"));
 const MemberProfile = lazy(() => import("./pages/MemberPortal/Profile"));
 const MemberInbox = lazy(() => import("./pages/MemberPortal/Inbox"));
-const MemberApplications = lazy(() => import("./pages/MemberPortal/Applications"));
-const ApplicationDetails = lazy(() => import("./pages/ApplicationDetails"));
+// MemberApplications removed
+// ApplicationDetails removed
+const AdminApplicationDetails = lazy(() => import("./pages/AdminApplicationDetails"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const NoAccess = lazy(() => import("./pages/NoAccess"));
 const DocumentUpload = lazy(() => import("./pages/DocumentUpload"));
@@ -266,7 +267,7 @@ const App = () => {
                             <Route path="/member-portal" element={<MemberPortalLayout />}>
                               <Route index element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_DASHBOARD} moduleType="member"><MemberDashboard /></ProtectedRoute>} />
                               <Route path="inbox" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_INBOX} moduleType="member"><MemberInbox /></ProtectedRoute>} />
-                              <Route path="applications" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_APPLICATIONS} moduleType="member"><MemberApplications /></ProtectedRoute>} />
+                              {/* Applications route removed */}
                               <Route path="orders" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_ORDERS} moduleType="member"><MemberOrders /></ProtectedRoute>} />
                               <Route path="membership" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_MEMBERSHIP} moduleType="member"><MemberMembership /></ProtectedRoute>} />
                               <Route path="profile" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_PROFILE} moduleType="member"><MemberProfile /></ProtectedRoute>} />
@@ -277,7 +278,7 @@ const App = () => {
                             <Route path="/about" element={<About />} />
                             <Route path="/vendors" element={<Vendors />} />
                             <Route path="/vendors/:slug" element={<VendorDetails />} />
-                            <Route path="/application/:slug" element={<ApplicationDetails />} />
+                            {/* Application details route removed */}
                             <Route path="/blog" element={<Blogs />} />
                             <Route path="/blog/:slug" element={<BlogDetails />} />
                             <Route path="/jobs" element={<Jobs />} />
@@ -344,7 +345,7 @@ const App = () => {
                         <Route path="/member-portal" element={<MemberPortalLayout />}>
                           <Route index element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_DASHBOARD} moduleType="member"><MemberDashboard /></ProtectedRoute>} />
                           <Route path="inbox" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_INBOX} moduleType="member"><MemberInbox /></ProtectedRoute>} />
-                          <Route path="applications" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_APPLICATIONS} moduleType="member"><MemberApplications /></ProtectedRoute>} />
+                          {/* Applications route removed */}
                           <Route path="orders" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_ORDERS} moduleType="member"><MemberOrders /></ProtectedRoute>} />
                           <Route path="membership" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_MEMBERSHIP} moduleType="member"><MemberMembership /></ProtectedRoute>} />
                           <Route path="profile" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_PROFILE} moduleType="member"><MemberProfile /></ProtectedRoute>} />
@@ -355,7 +356,7 @@ const App = () => {
                         <Route path="/about" element={<About />} />
                         <Route path="/vendors" element={<Vendors />} />
                         <Route path="/vendors/:slug" element={<VendorDetails />} />
-                        <Route path="/application/:slug" element={<ApplicationDetails />} />
+                        {/* Application details route removed */}
                         <Route path="/blog" element={<Blogs />} />
                         <Route path="/blog/:slug" element={<BlogDetails />} />
                         <Route path="/jobs" element={<Jobs />} />
@@ -368,6 +369,7 @@ const App = () => {
                         <Route path="/newsletter" element={<Newsletters />} />
                         <Route path="/newsletter/:slug" element={<NewsletterDetails />} />
                         <Route path="/images" element={<Images />} />
+                        <Route path="/applications/:slug" element={<ProtectedRoute module={ADMIN_MODULES.ADMIN_APPLICATIONS} moduleType="admin"><AdminApplicationDetails /></ProtectedRoute>} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
                       </Routes>

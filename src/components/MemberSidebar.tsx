@@ -32,7 +32,6 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { title: "Dashboard", url: "/member-portal", icon: LayoutDashboard, end: true, module: MEMBER_MODULES.MEMBER_DASHBOARD },
   { title: "Inbox", url: "/member-portal/inbox", icon: Inbox, module: MEMBER_MODULES.MEMBER_INBOX },
-  { title: "Applications", url: "/member-portal/applications", icon: FileText, module: MEMBER_MODULES.MEMBER_APPLICATIONS },
   { title: "Order History", url: "/member-portal/orders", icon: Package, module: MEMBER_MODULES.MEMBER_ORDERS },
   { title: "Membership", url: "/member-portal/membership", icon: Users, module: MEMBER_MODULES.MEMBER_MEMBERSHIP },
   { title: "Profile", url: "/member-portal/profile", icon: UserCircle, module: MEMBER_MODULES.MEMBER_PROFILE },
@@ -90,11 +89,11 @@ export function MemberSidebar() {
     fetchTypes();
   }, [user?.id]);
 
-  const filteredMenuItems = menuItems.filter(item => 
+  const filteredMenuItems = menuItems.filter(item =>
     hasMemberModuleAccess(userRole, item.module)
   );
 
-  const isExpanded = filteredMenuItems.some((item) => 
+  const isExpanded = filteredMenuItems.some((item) =>
     item.end ? currentPath === item.url : currentPath.startsWith(item.url)
   );
 
@@ -124,10 +123,10 @@ export function MemberSidebar() {
               {filteredMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
+                    <NavLink
+                      to={item.url}
                       end={item.end}
-                      className="hover:bg-muted/50 w-full" 
+                      className="hover:bg-muted/50 w-full"
                       activeClassName="bg-muted text-primary font-medium"
                       onClick={handleNavClick}
                     >
@@ -161,7 +160,7 @@ export function MemberSidebar() {
                     {bookingTypes.map((type) => (
                       <SidebarMenuItem key={type.booking_types}>
                         <SidebarMenuButton asChild>
-                          <NavLink 
+                          <NavLink
                             to={`/member-portal/orders?booking_type=${encodeURIComponent(type.booking_types)}`}
                             className={cn(
                               "hover:bg-muted/50 w-full text-sm",
@@ -203,7 +202,7 @@ export function MemberSidebar() {
                     {itemTypes.map((type) => (
                       <SidebarMenuItem key={type.booking_items}>
                         <SidebarMenuButton asChild>
-                          <NavLink 
+                          <NavLink
                             to={`/member-portal/orders?items_type=${encodeURIComponent(type.booking_items)}`}
                             className={cn(
                               "hover:bg-muted/50 w-full text-sm",
