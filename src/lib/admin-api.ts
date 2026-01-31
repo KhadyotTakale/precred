@@ -471,58 +471,53 @@ class AdminAPI {
       paymentStatus?: string;
     }
   ): Promise<OrdersResponse> {
-    const params: string[] = [];
+    const externalParams: any = {
+      page: page,
+      per_page: perPage
+    };
 
-    // Build query parameters
     if (options?.bookingType && options.bookingType !== 'all') {
-      params.push(`booking_type=${encodeURIComponent(options.bookingType)}`);
+      externalParams.booking_type = options.bookingType;
     }
 
     if (options?.itemsType && options.itemsType !== 'all') {
-      params.push(`items_type=${encodeURIComponent(options.itemsType)}`);
+      externalParams.items_type = options.itemsType;
     }
 
     if (options?.status && options.status !== 'all') {
-      params.push(`status=${encodeURIComponent(options.status)}`);
+      externalParams.status = options.status;
     }
 
     if (options?.search) {
-      params.push(`search=${encodeURIComponent(options.search)}`);
+      externalParams.search = options.search;
     }
 
     if (options?.bookingSlug) {
-      params.push(`booking_slug=${encodeURIComponent(options.bookingSlug)}`);
+      externalParams.booking_slug = options.bookingSlug;
     }
 
     if (options?.startDate) {
-      params.push(`start_date=${encodeURIComponent(options.startDate)}`);
+      externalParams.start_date = options.startDate;
     }
 
     if (options?.endDate) {
-      params.push(`end_date=${encodeURIComponent(options.endDate)}`);
+      externalParams.end_date = options.endDate;
     }
 
     if (options?.isDeleted !== undefined) {
-      params.push(`is_deleted=${options.isDeleted}`);
+      externalParams.is_deleted = options.isDeleted;
     }
 
     if (options?.checkoutType && options.checkoutType !== 'all') {
-      params.push(`checkout_type=${encodeURIComponent(options.checkoutType)}`);
+      externalParams.checkout_type = options.checkoutType;
     }
 
     if (options?.paymentStatus && options.paymentStatus !== 'all') {
-      params.push(`payment_status=${encodeURIComponent(options.paymentStatus)}`);
+      externalParams.payment_status = options.paymentStatus;
     }
 
-    // Add pagination as external JSON object
-    const externalParams = {
-      page: page,
-      perPage: perPage
-    };
-    params.push(`external=${encodeURIComponent(JSON.stringify(externalParams))}`);
-
-    const endpoint = `/applications${params.length > 0 ? '?' + params.join('&') : ''}`;
-    return this.get<OrdersResponse>(endpoint, clerkUserId);
+    const jsonParams = JSON.stringify(externalParams);
+    return this.get<OrdersResponse>(`/bookings?external=${encodeURIComponent(jsonParams)}`, clerkUserId);
   }
 
   async getCustomerNotes(clerkUserId: string, customerId: string, page: number = 1, perPage: number = 25): Promise<CustomerNotesResponse> {
@@ -586,6 +581,8 @@ class AdminAPI {
   async submitRaffleEntry(itemsId: number, clerkUserId: string): Promise<RaffleEntryResponse> {
     return this.post<RaffleEntryResponse>('/raffle', { items_id: itemsId }, clerkUserId);
   }
+
+
 
   async submitFreeRaffleEntry(
     itemsId: number,
@@ -2512,5 +2509,7 @@ export interface WorkflowLogsResponse {
   offset: number;
   items: WorkflowLog[];
 }
+
+
 
 export const adminAPI = new AdminAPI();

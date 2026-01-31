@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUser } from "@clerk/clerk-react";
-import { adminAPI, type Order } from "@/lib/admin-api";
+import { elegantAPI, type Booking } from "@/lib/elegant-api";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronRight, AlertCircle } from "lucide-react";
@@ -20,7 +20,7 @@ const AdminApplicationDetails = () => {
     const { slug } = useParams<{ slug: string }>();
     const navigate = useNavigate();
     const { user } = useUser();
-    const [application, setApplication] = useState<Order | null>(null);
+    const [application, setApplication] = useState<Booking | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +30,7 @@ const AdminApplicationDetails = () => {
 
             setLoading(true);
             try {
-                const details = await adminAPI.getApplicationDetails(slug, user.id);
+                const details = await elegantAPI.getBookingBySlug(slug, user.id);
                 setApplication(details);
             } catch (err) {
                 console.error("Failed to fetch application details:", err);

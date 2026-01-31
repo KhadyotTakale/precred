@@ -291,6 +291,9 @@ const App = () => {
                             <Route path="/newsletter" element={<Newsletters />} />
                             <Route path="/newsletter/:slug" element={<NewsletterDetails />} />
                             <Route path="/images" element={<Images />} />
+                            <Route path="/applications/:slug" element={<AdminApplicationDetails />} />
+                            <Route path="/applicationnumbers/:slug" element={<AdminApplicationDetails />} />
+                            <Route path="/test-route" element={<div className="p-10 font-bold text-5xl text-red-500">TEST ROUTE WORKING</div>} />
                             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                             <Route path="*" element={<NotFound />} />
                           </Routes>
@@ -369,7 +372,9 @@ const App = () => {
                         <Route path="/newsletter" element={<Newsletters />} />
                         <Route path="/newsletter/:slug" element={<NewsletterDetails />} />
                         <Route path="/images" element={<Images />} />
-                        <Route path="/applications/:slug" element={<ProtectedRoute module={ADMIN_MODULES.ADMIN_APPLICATIONS} moduleType="admin"><AdminApplicationDetails /></ProtectedRoute>} />
+                        <Route path="/applications/:slug" element={<AdminApplicationDetails />} />
+                        <Route path="/applicationnumbers/:slug" element={<AdminApplicationDetails />} />
+                        <Route path="/test-route" element={<div className="p-10 font-bold text-5xl text-red-500">TEST ROUTE WORKING</div>} />
                         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                         <Route path="*" element={<NotFound />} />
                       </Routes>

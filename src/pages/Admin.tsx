@@ -597,7 +597,7 @@ const Admin = () => {
                           size="sm"
                           className="h-8 w-8 p-0"
                           title="View Details"
-                          onClick={() => navigate(`/applications/${app.booking_slug}`)}
+                          onClick={() => navigate(`/applicationnumbers/${app.booking_slug}`)}
                         >
                           <Eye className="h-4 w-4 text-slate-600" />
                         </Button>

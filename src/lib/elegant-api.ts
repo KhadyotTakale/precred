@@ -461,6 +461,10 @@ class ElegantAPI {
     return this.patch(`/booking/${bookingId}`, { status }, clerkUserId);
   }
 
+  async createBooking(bookingData: any, clerkUserId: string): Promise<any> {
+    return this.post('/booking', bookingData, clerkUserId);
+  }
+
   async getMembershipBookings(clerkUserId: string): Promise<MembershipBookingsResponse> {
     return this.get<MembershipBookingsResponse>('/booking/items/Membership', clerkUserId);
   }
@@ -530,6 +534,12 @@ class ElegantAPI {
   async getApplicationDetails(clerkUserId: string, bookingSlug: string): Promise<Booking | null> {
     const response = await this.get<{ items: Booking[] }>(`/application/${bookingSlug}`, clerkUserId);
     return response.items?.[0] || null;
+  }
+
+  async getBookingBySlug(bookingSlug: string, clerkUserId: string): Promise<Booking | null> {
+    const response = await this.get<Booking[]>(`/booking_by_slug/${bookingSlug}`, clerkUserId);
+    // API returns direct array, not { items: [...] }
+    return Array.isArray(response) ? response[0] || null : null;
   }
 
   async createWorkflowLog(logData: WorkflowLogRequest): Promise<WorkflowLogResponse> {

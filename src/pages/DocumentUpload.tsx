@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useUser } from '@clerk/clerk-react';
+import { elegantAPI } from '@/lib/elegant-api';
 import { FileUpload } from '@/components/upload/FileUpload';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +14,7 @@ import { AnalysisResult } from '@/components/analysis/AnalysisResult';
 
 
 const DocumentUpload = () => {
+    const { user } = useUser();
     const [step, setStep] = useState(1);
     const [files, setFiles] = useState<{ [key: string]: File | null }>({
         bankStatement: null,
@@ -23,8 +26,11 @@ const DocumentUpload = () => {
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [analysis, setAnalysis] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
 
     const handleFileSelect = (key: string, file: File) => {
+        setIsSaved(false); // Reset saved status on new file
         setFiles((prev) => ({ ...prev, [key]: file }));
     };
 
@@ -74,7 +80,7 @@ const DocumentUpload = () => {
             const data = await response.json();
             if (data.analysis) {
                 setAnalysis(data.analysis);
-                toast.success("Analysis complete!");
+                toast.success("Analysis complete! Please review and save the application.");
             } else {
                 toast.error("Analysis data missing from response.");
             }
@@ -85,6 +91,31 @@ const DocumentUpload = () => {
             setIsSubmitting(false);
         }
     };
+
+    const handleSaveApplication = async () => {
+        if (!user?.id || !analysis) return;
+
+        setIsSaving(true);
+        try {
+            await elegantAPI.createBooking({
+                booking_type: 'Application',
+                status: 'pending',
+                items_id: 0,
+                booking_info: {
+                    analysis_result: analysis,
+                    uploaded_files_summary: Object.keys(files).filter(k => files[k]).map(k => `${k}: ${files[k]?.name}`)
+                }
+            }, user.id);
+            toast.success("Application saved successfully!");
+            setIsSaved(true);
+        } catch (saveError) {
+            console.error("Failed to save application:", saveError);
+            toast.error("Failed to save application record.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
 
     const completedCount = Object.values(files).filter(Boolean).length;
     // 5 total documents tracked
@@ -206,7 +237,16 @@ const DocumentUpload = () => {
 
                 {/* Header Section */}
                 {analysis ? (
-                    <AnalysisResult analysis={analysis} onReset={() => setAnalysis(null)} />
+                    <AnalysisResult
+                        analysis={analysis}
+                        onReset={() => {
+                            setAnalysis(null);
+                            setIsSaved(false);
+                        }}
+                        onSave={handleSaveApplication}
+                        isSaving={isSaving}
+                        isSaved={isSaved}
+                    />
                 ) : (
                     <>
                         <div className="space-y-2">

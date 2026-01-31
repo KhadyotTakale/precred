@@ -21,9 +21,12 @@ import ReactMarkdown from 'react-markdown';
 interface AnalysisResultProps {
     analysis: string;
     onReset: () => void;
+    onSave?: () => void;
+    isSaving?: boolean;
+    isSaved?: boolean;
 }
 
-export const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, onReset }) => {
+export const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, onReset, onSave, isSaving = false, isSaved = false }) => {
 
     // Extract metrics from the analysis text
     const extractedMetrics = useMemo(() => {
@@ -54,13 +57,40 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ analysis, onRese
                     <p className="text-muted-foreground">Automated assessment based on uploaded documents</p>
                 </div>
                 <div className="flex gap-3">
+                    {onSave && !isSaved && (
+                        <Button
+                            variant="default"
+                            size="sm"
+                            onClick={onSave}
+                            disabled={isSaving}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                            {isSaving ? (
+                                <>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                    Saving...
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Save Application
+                                </>
+                            )}
+                        </Button>
+                    )}
+                    {isSaved && (
+                        <div className="flex items-center text-emerald-600 font-medium text-sm mr-2 animate-in fade-in">
+                            <CheckCircle className="w-4 h-4 mr-1.5" />
+                            Application Saved
+                        </div>
+                    )}
                     <Button variant="outline" size="sm" onClick={onReset}>
                         <FileText className="w-4 h-4 mr-2" />
-                        New Application
+                        New App
                     </Button>
-                    <Button size="sm">
+                    <Button size="sm" variant="secondary">
                         <Download className="w-4 h-4 mr-2" />
-                        Download PDF
+                        Download
                     </Button>
                 </div>
             </div>

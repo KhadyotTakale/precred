@@ -45,7 +45,7 @@ const Hero = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [imageLoaded, setImageLoaded] = useState(false);
   const [dynamicImages, setDynamicImages] = useState<string[]>([]);
-  
+
   // Fetch random images from API
   useEffect(() => {
     const fetchRandomImages = async () => {
@@ -69,7 +69,7 @@ const Hero = ({
     };
     fetchRandomImages();
   }, []);
-  
+
   // Use dynamic images if available, otherwise fall back to static
   const floatingImages = useMemo(() => {
     if (dynamicImages.length >= 3) {
@@ -79,7 +79,7 @@ const Hero = ({
     const shuffled = [...staticHeroImages].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, 3);
   }, [dynamicImages]);
-  
+
   // Preload floating images
   useEffect(() => {
     if (floatingImages.length === 0) return;
@@ -148,8 +148,8 @@ const Hero = ({
             <span className="text-muted-foreground">
               Spring Classes Now Open for Registration!
             </span>
-            <Link 
-              to="/classes" 
+            <Link
+              to="/classes"
               className="text-primary font-medium hover:underline inline-flex items-center gap-1 group"
             >
               Enroll Today
@@ -179,24 +179,24 @@ const Hero = ({
                   </span>
                 </h1>
               </div>
-              
+
               <p className="text-base md:text-lg text-muted-foreground max-w-md leading-relaxed">
-                Bringing knowledge and beauty to life, one specimen at a time. 
+                Bringing knowledge and beauty to life, one specimen at a time.
                 Discover unique minerals, expert classes, and a passionate community.
               </p>
 
               <div className="flex flex-wrap items-center gap-4">
-                <Button 
-                  size="lg" 
-                  className="px-8 h-12 text-base font-semibold rounded-full group" 
+                <Button
+                  size="lg"
+                  className="px-8 h-12 text-base font-semibold rounded-full group"
                   onClick={() => scrollToSection("events")}
                 >
                   Explore Events
                   <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </Button>
-                <Button 
-                  variant="ghost" 
-                  size="lg" 
+                <Button
+                  variant="ghost"
+                  size="lg"
                   className="text-muted-foreground hover:text-foreground"
                   onClick={() => scrollToSection("about")}
                 >
@@ -208,12 +208,12 @@ const Hero = ({
               <form onSubmit={handleSearch} className="max-w-md">
                 <div className="relative">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                  <Input 
-                    type="text" 
-                    placeholder="Search minerals, gems, vendors, classes..." 
-                    value={searchQuery} 
-                    onChange={e => setSearchQuery(e.target.value)} 
-                    className="h-12 pl-12 pr-4 text-base bg-muted/50 border-border/50 rounded-full" 
+                  <Input
+                    type="text"
+                    placeholder="Search minerals, gems, vendors, classes..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="h-12 pl-12 pr-4 text-base bg-muted/50 border-border/50 rounded-full"
                   />
                 </div>
               </form>
@@ -222,13 +222,13 @@ const Hero = ({
             {/* Right Content - Floating Image Cards - BIGGER */}
             <div className="hidden lg:block relative h-[560px]">
               {/* Main tilted card - LARGER */}
-              <div 
+              <div
                 className={`absolute top-0 right-0 w-80 h-96 rounded-3xl overflow-hidden shadow-2xl transform rotate-6 hover:rotate-3 transition-all duration-500 ${imageLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
                 style={{ transitionDelay: '100ms' }}
               >
-                <img 
-                  src={floatingImages[0]} 
-                  alt="Mineral showcase" 
+                <img
+                  src={floatingImages[0]}
+                  alt="Mineral showcase"
                   className="w-full h-full object-cover"
                   loading="eager"
                 />
@@ -236,28 +236,28 @@ const Hero = ({
                   Featured
                 </Badge>
               </div>
-              
+
               {/* Secondary card - bottom left - LARGER */}
-              <div 
+              <div
                 className={`absolute bottom-0 left-0 w-64 h-72 rounded-3xl overflow-hidden shadow-xl transform -rotate-6 hover:-rotate-3 transition-all duration-500 ${imageLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
                 style={{ transitionDelay: '200ms' }}
               >
-                <img 
-                  src={floatingImages[1]} 
-                  alt="Mineral showcase" 
+                <img
+                  src={floatingImages[1]}
+                  alt="Mineral showcase"
                   className="w-full h-full object-cover"
                   loading="eager"
                 />
               </div>
-              
+
               {/* Third card - middle overlapping - LARGER */}
-              <div 
+              <div
                 className={`absolute top-36 left-32 w-56 h-64 rounded-3xl overflow-hidden shadow-xl transform rotate-3 hover:rotate-0 transition-all duration-500 border-4 border-background ${imageLoaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
                 style={{ transitionDelay: '300ms' }}
               >
-                <img 
-                  src={floatingImages[2]} 
-                  alt="Mineral showcase" 
+                <img
+                  src={floatingImages[2]}
+                  alt="Mineral showcase"
                   className="w-full h-full object-cover"
                   loading="eager"
                 />
@@ -286,12 +286,12 @@ const Hero = ({
                 </Button>
               </Link>
             </div>
-            
+
             <div className="space-y-1">
               {raffles.slice(0, 3).map(raffle => (
-                <Link 
-                  key={raffle.id} 
-                  to={`/raffles/${raffle.slug}`} 
+                <Link
+                  key={raffle.id}
+                  to={`/raffles/${raffle.slug}`}
                   className="flex items-center gap-3 py-2 group"
                 >
                   <div className="h-8 w-8 rounded-lg bg-muted/50 flex items-center justify-center flex-shrink-0">
