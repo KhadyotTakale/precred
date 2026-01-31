@@ -19,9 +19,10 @@ import {
   BarChart3, Building2, Shield, Search, Bell, Filter, ChevronRight,
   AlertTriangle, CheckCircle2, Clock, ArrowUpRight,
   MoreVertical, Send, UserPlus, MessageSquare,
-  Download, Briefcase, Activity, Target, Layers, BookOpen, Zap, RefreshCw
+  Download, Briefcase, Activity, Target, Layers, BookOpen, Zap, RefreshCw, PlusCircle
 } from "lucide-react";
-import { adminAPI } from "@/lib/admin-api";
+import DocumentUpload from "./DocumentUpload";
+import { adminAPI, type Order, type DashboardAnalyticsResponse } from "@/lib/admin-api";
 import { useToast } from "@/hooks/use-toast";
 
 // Types
@@ -34,38 +35,9 @@ type AdminView =
   | "workspace"
   | "outcomes"
   | "dsa-quality"
-  | "settings";
+  | "settings"
+  | "create-application";
 
-interface Application {
-  id: number;
-  bookings_slug: string;
-  booking_type: string;
-  status: string;
-  created_at: number;
-  items_info?: {
-    item_type?: string;
-    name?: string;
-  };
-  customers_info?: {
-    full_name?: string;
-    email?: string;
-    cust_info?: any;
-  };
-  booking_info?: any;
-  booking_payments?: Array<{
-    total_price?: number;
-    payment_status?: string;
-  }>;
-}
-
-interface DashboardAnalytics {
-  total_revenue?: number;
-  total_orders?: number;
-  total_customers?: number;
-  total_leads?: number;
-  pending_orders?: number;
-  completed_orders?: number;
-}
 
 // Mock data for elements not in API
 const mockSchemes = [
@@ -90,16 +62,17 @@ const Admin = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Data states
-  const [applications, setApplications] = useState<Application[]>([]);
-  const [analytics, setAnalytics] = useState<DashboardAnalytics | null>(null);
+  const [applications, setApplications] = useState<Order[]>([]);
+  const [analytics, setAnalytics] = useState<DashboardAnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [applicationsLoading, setApplicationsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [selectedApp, setSelectedApp] = useState<Application | null>(null);
+  const [selectedApp, setSelectedApp] = useState<Order | null>(null);
 
   const navItems = [
     { id: "dashboard" as AdminView, label: "Dashboard", icon: LayoutDashboard },
+    { id: "create-application" as AdminView, label: "Create Application", icon: PlusCircle },
     { id: "applications" as AdminView, label: "Applications", icon: FileText },
     { id: "decision-preview" as AdminView, label: "Decision Preview", icon: Eye },
     { id: "schemes" as AdminView, label: "Schemes", icon: Layers },
@@ -290,7 +263,7 @@ const Admin = () => {
                 ) : (
                   <>
                     <p className="text-3xl font-bold text-slate-900">
-                      {analytics?.total_revenue ? formatCurrency(analytics.total_revenue) : "₹0"}
+                      {analytics?.metrics?.booking_analytics?.total_revenue ? formatCurrency(analytics.metrics.booking_analytics.total_revenue) : "₹0"}
                     </p>
                     <p className="text-xs text-slate-500 mt-1">All time</p>
                   </>
@@ -315,7 +288,7 @@ const Admin = () => {
             {loading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <p className="text-2xl font-bold text-slate-900">{analytics?.total_customers || 0}</p>
+              <p className="text-2xl font-bold text-slate-900">{analytics?.metrics?.customers?.total || 0}</p>
             )}
           </CardContent>
         </Card>
@@ -329,7 +302,7 @@ const Admin = () => {
             {loading ? (
               <Skeleton className="h-8 w-16" />
             ) : (
-              <p className="text-2xl font-bold text-slate-900">{analytics?.total_leads || 0}</p>
+              <p className="text-2xl font-bold text-slate-900">{analytics?.metrics?.leads?.total || 0}</p>
             )}
           </CardContent>
         </Card>
@@ -372,9 +345,9 @@ const Admin = () => {
                   <FileText className="h-4 w-4 mt-0.5 text-blue-500" />
                   <div className="flex-1">
                     <p className="text-sm text-slate-700">
-                      <span className="font-medium">{app.bookings_slug}</span>
+                      <span className="font-medium">{app.booking_slug}</span>
                       {" - "}
-                      {app.customers_info?.full_name || "Unknown"}
+                      {app._customers?.Full_name || "Unknown"}
                     </p>
                     <p className="text-xs text-slate-400">{formatDate(app.created_at)}</p>
                   </div>
@@ -464,22 +437,22 @@ const Admin = () => {
                 {applications.map((app) => (
                   <tr key={app.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
-                      <span className="font-medium text-slate-900">{app.bookings_slug}</span>
+                      <span className="font-medium text-slate-900">{app.booking_slug}</span>
                     </td>
                     <td className="px-6 py-4">
                       <div>
-                        <p className="text-sm text-slate-900">{app.customers_info?.full_name || "—"}</p>
-                        <p className="text-xs text-slate-500">{app.customers_info?.email || "—"}</p>
+                        <p className="text-sm text-slate-900">{app._customers?.Full_name || "—"}</p>
+                        <p className="text-xs text-slate-500">{app._customers?.email || "—"}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant="outline" className="font-normal">
-                        {app.items_info?.item_type || app.booking_type || "—"}
+                        {app._items?.item_type || app.booking_type || "—"}
                       </Badge>
                     </td>
                     <td className="px-6 py-4 text-slate-700">
-                      {app.booking_payments?.[0]?.total_price
-                        ? formatCurrency(app.booking_payments[0].total_price)
+                      {app._booking_items_of_bookings?.items?.[0]?.price
+                        ? formatCurrency(app._booking_items_of_bookings.items[0].price)
                         : "—"}
                     </td>
                     <td className="px-6 py-4 text-slate-600 text-sm">
@@ -495,7 +468,7 @@ const Admin = () => {
                           size="sm"
                           className="h-8 w-8 p-0"
                           title="View Details"
-                          onClick={() => navigate(`/applications/${app.bookings_slug}`)}
+                          onClick={() => navigate(`/applications/${app.booking_slug}`)}
                         >
                           <Eye className="h-4 w-4 text-slate-600" />
                         </Button>
@@ -567,9 +540,9 @@ const Admin = () => {
       <div className="space-y-6">
         <div className="flex items-center gap-4 mb-6">
           <Select
-            value={app?.bookings_slug || ""}
+            value={app?.booking_slug || ""}
             onValueChange={(slug) => {
-              const found = applications.find(a => a.bookings_slug === slug);
+              const found = applications.find(a => a.booking_slug === slug);
               if (found) setSelectedApp(found);
             }}
           >
@@ -578,7 +551,7 @@ const Admin = () => {
             </SelectTrigger>
             <SelectContent>
               {applications.map(a => (
-                <SelectItem key={a.id} value={a.bookings_slug}>{a.bookings_slug}</SelectItem>
+                <SelectItem key={a.id} value={a.booking_slug}>{a.booking_slug}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -619,20 +592,20 @@ const Admin = () => {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="p-4 bg-slate-50 rounded-xl">
                     <p className="text-xs text-slate-500 mb-1">Customer</p>
-                    <p className="text-sm font-medium text-slate-900">{app?.customers_info?.full_name || "—"}</p>
+                    <p className="text-sm font-medium text-slate-900">{app?._customers?.Full_name || "—"}</p>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-xl">
                     <p className="text-xs text-slate-500 mb-1">Amount</p>
                     <p className="text-sm font-medium text-slate-900">
-                      {app?.booking_payments?.[0]?.total_price
-                        ? formatCurrency(app.booking_payments[0].total_price)
+                      {app?._booking_items_of_bookings?.items?.[0]?.price
+                        ? formatCurrency(app._booking_items_of_bookings.items[0].price)
                         : "—"}
                     </p>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-xl">
                     <p className="text-xs text-slate-500 mb-1">Type</p>
                     <p className="text-sm font-medium text-slate-900">
-                      {app?.items_info?.item_type || app?.booking_type || "—"}
+                      {app?._items?.item_type || app?.booking_type || "—"}
                     </p>
                   </div>
                   <div className="p-4 bg-slate-50 rounded-xl">
@@ -724,7 +697,7 @@ const Admin = () => {
               <CardContent className="p-4">
                 <Button
                   className="w-full mb-2 bg-slate-900 hover:bg-slate-800 rounded-xl"
-                  onClick={() => navigate(`/applications/${app?.bookings_slug}`)}
+                  onClick={() => navigate(`/applications/${app?.booking_slug}`)}
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   View Full Details
@@ -910,6 +883,7 @@ const Admin = () => {
   const renderContent = () => {
     switch (activeView) {
       case "dashboard": return renderDashboard();
+      case "create-application": return <DocumentUpload />;
       case "applications": return renderApplications();
       case "decision-preview": return renderDecisionPreview();
       case "schemes": return renderSchemes();
@@ -947,8 +921,8 @@ const Admin = () => {
               key={item.id}
               onClick={() => setActiveView(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left ${activeView === item.id
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:bg-slate-100"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:bg-slate-100"
                 }`}
             >
               <item.icon className="h-5 w-5 shrink-0" />
@@ -982,6 +956,7 @@ const Admin = () => {
               </h1>
               <p className="text-sm text-slate-500">
                 {activeView === "dashboard" && "Overview of your operations"}
+                {activeView === "create-application" && "Upload documents for new loan application"}
                 {activeView === "applications" && "Manage and review applications"}
                 {activeView === "decision-preview" && "AI-powered decision insights"}
                 {activeView === "schemes" && "Configure lending schemes"}
