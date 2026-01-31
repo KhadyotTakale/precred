@@ -652,18 +652,81 @@ const Admin = () => {
       );
     }
 
-    // Generate simulated AI scores based on available data
-    const generateLikelihood = () => {
-      if (!app) return 75;
-      // Simple simulation based on status
-      if (app.status === "completed") return 89;
-      if (app.status === "processing") return 72;
-      if (app.status === "pending") return 65;
-      return 50;
+    // Parse the analysis_result to extract insights
+    const analysisResult = app?.booking_info?.analysis_result || "";
+
+    // Helper function to extract sections from markdown analysis
+    const extractSection = (text: string, sectionName: string): string[] => {
+      const regex = new RegExp(`##\\s*${sectionName}[\\s\\S]*?(?=##|$)`, 'i');
+      const match = text.match(regex);
+      if (!match) return [];
+
+      // Extract bullet points or numbered items
+      const lines = match[0].split('\n')
+        .filter(line => line.trim().startsWith('-') || line.trim().startsWith('*') || /^\d+\./.test(line.trim()))
+        .map(line => line.replace(/^[\s\-\*\d\.]+/, '').trim())
+        .filter(line => line.length > 0);
+
+      return lines.slice(0, 5); // Limit to 5 items
     };
 
-    const likelihood = generateLikelihood();
-    const riskBand = likelihood >= 70 ? "Low" : likelihood >= 50 ? "Medium" : "High";
+    // Extract key sections from analysis
+    const strengths = extractSection(analysisResult, "Key Strengths|Strengths|Positive Factors|Positives");
+    const risks = extractSection(analysisResult, "Key Risks|Risks|Risk Factors|Concerns|Areas of Concern|Red Flags");
+    const recommendations = extractSection(analysisResult, "Recommendations|Suggested Actions|Next Steps");
+
+    // Try to extract approval likelihood from analysis
+    let likelihood = 50; // Default
+    let riskBand = "Medium";
+
+    // Look for explicit score/likelihood in analysis
+    const scoreMatch = analysisResult.match(/(?:approval|likelihood|score|probability)[:\s]*(\d{1,3})%?/i);
+    if (scoreMatch) {
+      likelihood = parseInt(scoreMatch[1], 10);
+    } else {
+      // Infer from risk level mentioned
+      const lowerAnalysis = analysisResult.toLowerCase();
+      if (lowerAnalysis.includes("high risk") || lowerAnalysis.includes("reject") || lowerAnalysis.includes("decline")) {
+        likelihood = 35;
+      } else if (lowerAnalysis.includes("low risk") || lowerAnalysis.includes("approve") || lowerAnalysis.includes("strong candidate")) {
+        likelihood = 85;
+      } else if (lowerAnalysis.includes("medium risk") || lowerAnalysis.includes("moderate")) {
+        likelihood = 60;
+      } else if (app?.status === "completed") {
+        likelihood = 89;
+      } else if (app?.status === "processing") {
+        likelihood = 72;
+      } else if (app?.status === "pending") {
+        likelihood = 65;
+      }
+    }
+
+    // Determine risk band
+    if (likelihood >= 70) riskBand = "Low";
+    else if (likelihood >= 50) riskBand = "Medium";
+    else riskBand = "High";
+
+    // Fallback strengths if none found
+    const displayStrengths = strengths.length > 0 ? strengths : [
+      "Application submitted successfully",
+      "Contact information verified",
+      likelihood >= 70 ? "Strong approval indicators" : "Application complete",
+    ];
+
+    // Fallback risks if none found
+    const displayRisks = risks.length > 0 ? risks : (likelihood < 70 ? [
+      "Additional documentation may be required",
+      "Manual review recommended",
+    ] : []);
+
+    // Extract why this score reasons
+    const whyReasons = extractSection(analysisResult, "Assessment Basis|Scoring Factors|Analysis Summary");
+    const displayWhyReasons = whyReasons.length > 0 ? whyReasons : [
+      "Application completeness",
+      "Customer profile data",
+      "Historical patterns",
+      "Similar case outcomes",
+    ];
 
     return (
       <div className="space-y-6">
@@ -684,6 +747,11 @@ const Admin = () => {
               ))}
             </SelectContent>
           </Select>
+          {!analysisResult && (
+            <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50">
+              No AI Analysis Available
+            </Badge>
+          )}
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -756,11 +824,7 @@ const Admin = () => {
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {[
-                      "Application submitted successfully",
-                      "Contact information verified",
-                      likelihood >= 70 ? "Strong approval indicators" : "Application complete",
-                    ].map((item, idx) => (
+                    {displayStrengths.map((item, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
                         <Zap className="h-4 w-4 text-green-500 mt-0.5 shrink-0" />
                         {item}
@@ -779,11 +843,8 @@ const Admin = () => {
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2">
-                    {likelihood < 70 ? (
-                      [
-                        "Additional documentation may be required",
-                        "Manual review recommended",
-                      ].map((item, idx) => (
+                    {displayRisks.length > 0 ? (
+                      displayRisks.map((item, idx) => (
                         <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
                           <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
                           {item}
@@ -796,6 +857,28 @@ const Admin = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Recommendations (if available) */}
+            {recommendations.length > 0 && (
+              <Card className="border-0 shadow-sm bg-white">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Target className="h-5 w-5 text-blue-500" />
+                    Recommendations
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2">
+                    {recommendations.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
+                        <ChevronRight className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           {/* Side Panel */}
@@ -812,10 +895,9 @@ const Admin = () => {
                 <div className="space-y-3 text-sm text-slate-600">
                   <p>The {likelihood}% likelihood is calculated based on:</p>
                   <ul className="space-y-1 list-disc list-inside">
-                    <li>Application completeness</li>
-                    <li>Customer profile data</li>
-                    <li>Historical patterns</li>
-                    <li>Similar case outcomes</li>
+                    {displayWhyReasons.map((reason, idx) => (
+                      <li key={idx}>{reason}</li>
+                    ))}
                   </ul>
                 </div>
               </CardContent>
@@ -826,7 +908,7 @@ const Admin = () => {
               <CardContent className="p-4">
                 <Button
                   className="w-full mb-2 bg-slate-900 hover:bg-slate-800 rounded-xl"
-                  onClick={() => navigate(`/applications/${app?.booking_slug}`)}
+                  onClick={() => navigate(`/applicationnumbers/${app?.booking_slug}`)}
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   View Full Details
@@ -1388,7 +1470,7 @@ const Admin = () => {
                           </div>
                           <div>
                             <h4 className="font-medium text-slate-900">
-                              {task._items?.title || task._items?.item_name || `Application #${task.id}`}
+                              {task._items?.title || `Application #${task.id}`}
                             </h4>
                             <div className="flex items-center gap-2 text-sm text-slate-500">
                               <span>Applied {new Date(task.created_at).toLocaleDateString()}</span>
@@ -1571,7 +1653,7 @@ const Admin = () => {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-slate-900">
-                            {app._items?.title || app._items?.item_name || `App #${app.id}`}
+                            {app._items?.title || `App #${app.id}`}
                           </p>
                           <p className="text-xs text-slate-500">
                             Decided on {new Date(app.created_at).toLocaleDateString()}
