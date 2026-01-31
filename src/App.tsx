@@ -16,7 +16,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { SessionMonitor } from "./components/SessionMonitor";
 import { RateLimitIndicator } from "./components/RateLimitIndicator";
-import { MEMBER_MODULES } from "./lib/role-permissions";
+import { MEMBER_MODULES, ADMIN_MODULES } from "./lib/role-permissions";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ThemeProvider } from "./components/ThemeProvider";
 
@@ -247,7 +247,7 @@ const App = () => {
                             <Route path="/" element={<Index />} />
                             <Route path="/sign-in" element={<SignIn />} />
                             <Route path="/sign-up" element={<SignUp />} />
-                            <Route path="/admin" element={<Admin />} />
+                            <Route path="/admin" element={<ProtectedRoute module={ADMIN_MODULES.ADMIN_DASHBOARD} moduleType="admin"><Admin /></ProtectedRoute>} />
                             <Route path="/upload" element={<DocumentUpload />} />
                             <Route path="/guest-dashboard" element={<GuestDashboard />} />
                             <Route path="/vendor-dashboard" element={<VendorDashboard />} />
@@ -325,7 +325,7 @@ const App = () => {
                         <Route path="/" element={<Index />} />
                         <Route path="/sign-in" element={<SignIn />} />
                         <Route path="/sign-up" element={<SignUp />} />
-                        <Route path="/admin" element={<Admin />} />
+                        <Route path="/admin" element={<ProtectedRoute module={ADMIN_MODULES.ADMIN_DASHBOARD} moduleType="admin"><Admin /></ProtectedRoute>} />
                         <Route path="/upload" element={<DocumentUpload />} />
                         <Route path="/guest-dashboard" element={<GuestDashboard />} />
                         <Route path="/vendor-dashboard" element={<VendorDashboard />} />

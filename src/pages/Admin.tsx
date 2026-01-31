@@ -15,6 +15,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
   LayoutDashboard, FileText, Eye, Settings, Users, TrendingUp,
   BarChart3, Building2, Shield, Search, Bell, Filter, ChevronRight,
   AlertTriangle, CheckCircle2, Clock, ArrowUpRight,
@@ -40,12 +49,18 @@ type AdminView =
 
 
 // Mock data for elements not in API
-const mockSchemes = [
-  { id: 1, name: "MSME Business Loan", loanType: "Business", ticketSize: "₹5L - ₹50L", tenure: "12-60 months", riskAppetite: "Medium", status: "Active" },
-  { id: 2, name: "Professional Loan - Tier 1", loanType: "Personal", ticketSize: "₹2L - ₹20L", tenure: "12-36 months", riskAppetite: "Low", status: "Active" },
-  { id: 3, name: "MSME Working Capital", loanType: "Working Capital", ticketSize: "₹10L - ₹1Cr", tenure: "6-24 months", riskAppetite: "Medium", status: "Active" },
-  { id: 4, name: "Prime Business Loan", loanType: "Business", ticketSize: "₹25L - ₹2Cr", tenure: "24-84 months", riskAppetite: "Low", status: "Active" },
-];
+// Scheme type for type safety
+interface Scheme {
+  id: number;
+  item_name: string;
+  item_info?: {
+    loanType?: string;
+    ticketSize?: string;
+    tenure?: string;
+    riskAppetite?: string;
+  };
+  status?: string;
+}
 
 const mockDSAs = [
   { name: "FinServe Partners", applications: 45, approvalRate: 72, junkRate: 8, avgTAT: "1.2 days" },
@@ -68,7 +83,22 @@ const Admin = () => {
   const [applicationsLoading, setApplicationsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // Schemes state
+  const [schemes, setSchemes] = useState<Scheme[]>([]);
+  const [schemesLoading, setSchemesLoading] = useState(false);
   const [selectedApp, setSelectedApp] = useState<Order | null>(null);
+
+  // Create Scheme state
+  const [showAddSchemeDialog, setShowAddSchemeDialog] = useState(false);
+  const [newSchemeLoading, setNewSchemeLoading] = useState(false);
+  const [newSchemeData, setNewSchemeData] = useState({
+    name: "",
+    loanType: "Business",
+    ticketSize: "",
+    tenure: "",
+    riskAppetite: "Medium"
+  });
 
   const navItems = [
     { id: "dashboard" as AdminView, label: "Dashboard", icon: LayoutDashboard },
@@ -116,6 +146,94 @@ const Admin = () => {
     }
   }, [user?.id, searchQuery, statusFilter, toast]);
 
+  // Fetch schemes
+  const fetchSchemes = useCallback(async () => {
+    if (!user?.id) return;
+    setSchemesLoading(true);
+    try {
+      const response = await adminAPI.getItems(user.id, 1, 50, "Scheme");
+      // Map API items to Scheme interface
+      const mappedSchemes: Scheme[] = (response.items || []).map((item: any) => ({
+        id: item.id,
+        item_name: item.item_name || item.name || "Unnamed Scheme",
+        item_info: item.item_info || {},
+        status: item.status || "Active"
+      }));
+      setSchemes(mappedSchemes);
+    } catch (error) {
+      console.error("Failed to fetch schemes:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load schemes",
+        variant: "destructive",
+      });
+    } finally {
+      setSchemesLoading(false);
+    }
+  }, [user?.id, toast]);
+
+  // Handle create scheme
+  const handleCreateScheme = async () => {
+    if (!user?.id) return;
+
+    // Validate
+    if (!newSchemeData.name || !newSchemeData.ticketSize || !newSchemeData.tenure) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setNewSchemeLoading(true);
+    try {
+      // Basic slug generation
+      const slug = newSchemeData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+      await adminAPI.createItem({
+        title: newSchemeData.name, // API uses title
+        item_type: "Scheme",
+        Is_disabled: false, // Active status
+        description: `${newSchemeData.loanType} scheme with ${newSchemeData.riskAppetite} risk`,
+        slug: slug,
+        SEO_Tags: "scheme, loan",
+        tags: newSchemeData.loanType,
+        item_info: {
+          loanType: newSchemeData.loanType,
+          ticketSize: newSchemeData.ticketSize,
+          tenure: newSchemeData.tenure,
+          riskAppetite: newSchemeData.riskAppetite
+        }
+      }, user.id);
+
+      toast({
+        title: "Success",
+        description: "Scheme created successfully",
+        className: "bg-green-50 border-green-200 text-green-800",
+      });
+
+      setShowAddSchemeDialog(false);
+      setNewSchemeData({
+        name: "",
+        loanType: "Business",
+        ticketSize: "",
+        tenure: "",
+        riskAppetite: "Medium"
+      });
+      fetchSchemes(); // Refresh list
+    } catch (error) {
+      console.error("Failed to create scheme:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create scheme",
+        variant: "destructive",
+      });
+    } finally {
+      setNewSchemeLoading(false);
+    }
+  };
+
   // Initial load
   useEffect(() => {
     const loadData = async () => {
@@ -134,6 +252,13 @@ const Admin = () => {
       fetchApplications();
     }
   }, [searchQuery, statusFilter]);
+
+  // Fetch schemes when navigating to schemes view
+  useEffect(() => {
+    if (activeView === "schemes" && user?.id) {
+      fetchSchemes();
+    }
+  }, [activeView, user?.id, fetchSchemes]);
 
   const getRiskBandColor = (band: string) => {
     switch (band) {
@@ -715,53 +840,174 @@ const Admin = () => {
   };
 
   // Schemes View
-  const renderSchemes = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-slate-900">NBFC Schemes</h2>
-        <Button className="bg-slate-900 hover:bg-slate-800 rounded-xl gap-2">
-          <Plus className="h-4 w-4" />
-          Add Scheme
-        </Button>
-      </div>
+  const renderSchemes = () => {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-slate-900">NBFC Schemes</h2>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="rounded-xl gap-2"
+              onClick={() => fetchSchemes()}
+              disabled={schemesLoading}
+            >
+              <RefreshCw className={`h-4 w-4 ${schemesLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            <Button
+              className="bg-slate-900 hover:bg-slate-800 rounded-xl gap-2"
+              onClick={() => setShowAddSchemeDialog(true)}
+            >
+              <PlusCircle className="h-4 w-4" />
+              Add Scheme
+            </Button>
+          </div>
+        </div>
 
-      <div className="grid gap-4">
-        {mockSchemes.map((scheme) => (
-          <Card key={scheme.id} className="border-0 shadow-sm bg-white">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
-                    <Building2 className="h-6 w-6 text-slate-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{scheme.name}</h3>
-                    <p className="text-sm text-slate-500">{scheme.loanType} • {scheme.ticketSize}</p>
-                  </div>
+        {/* Add Scheme Dialog */}
+        <Dialog open={showAddSchemeDialog} onOpenChange={setShowAddSchemeDialog}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add New Scheme</DialogTitle>
+              <DialogDescription>
+                Create a new lending scheme configuration.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="scheme-name">Scheme Name</Label>
+                <Input
+                  id="scheme-name"
+                  placeholder="e.g. MSME Business Loan"
+                  value={newSchemeData.name}
+                  onChange={(e) => setNewSchemeData({ ...newSchemeData, name: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="loan-type">Loan Type</Label>
+                  <Select
+                    value={newSchemeData.loanType}
+                    onValueChange={(val) => setNewSchemeData({ ...newSchemeData, loanType: val })}
+                  >
+                    <SelectTrigger id="loan-type">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Business">Business</SelectItem>
+                      <SelectItem value="Personal">Personal</SelectItem>
+                      <SelectItem value="Working Capital">Working Capital</SelectItem>
+                      <SelectItem value="Education">Education</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="text-sm text-slate-600">{scheme.tenure}</p>
-                    <Badge variant="outline" className={
-                      scheme.riskAppetite === "Low" ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"
-                    }>
-                      {scheme.riskAppetite} Risk
-                    </Badge>
-                  </div>
-                  <Badge className={scheme.status === "Active" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}>
-                    {scheme.status}
-                  </Badge>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
+                <div className="grid gap-2">
+                  <Label htmlFor="risk-appetite">Risk Appetite</Label>
+                  <Select
+                    value={newSchemeData.riskAppetite}
+                    onValueChange={(val) => setNewSchemeData({ ...newSchemeData, riskAppetite: val })}
+                  >
+                    <SelectTrigger id="risk-appetite">
+                      <SelectValue placeholder="Select risk" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Low">Low Risk</SelectItem>
+                      <SelectItem value="Medium">Medium Risk</SelectItem>
+                      <SelectItem value="High">High Risk</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="ticket-size">Ticket Size</Label>
+                  <Input
+                    id="ticket-size"
+                    placeholder="e.g. ₹5L - ₹50L"
+                    value={newSchemeData.ticketSize}
+                    onChange={(e) => setNewSchemeData({ ...newSchemeData, ticketSize: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="tenure">Tenure</Label>
+                  <Input
+                    id="tenure"
+                    placeholder="e.g. 12-60 months"
+                    value={newSchemeData.tenure}
+                    onChange={(e) => setNewSchemeData({ ...newSchemeData, tenure: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAddSchemeDialog(false)}>Cancel</Button>
+              <Button onClick={handleCreateScheme} disabled={newSchemeLoading}>
+                {newSchemeLoading && <RefreshCw className="mr-2 h-4 w-4 animate-spin" />}
+                Create Scheme
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {schemesLoading ? (
+          <div className="grid gap-4">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-24 w-full" />
+            ))}
+          </div>
+        ) : schemes.length === 0 ? (
+          <Card className="border-0 shadow-sm bg-white">
+            <CardContent className="p-8 text-center">
+              <Layers className="h-12 w-12 mx-auto text-slate-300 mb-3" />
+              <p className="text-slate-500">No schemes configured yet</p>
+              <p className="text-sm text-slate-400 mt-1">Create items with type "Scheme" in the Items section to see them here</p>
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          <div className="grid gap-4">
+            {schemes.map((scheme) => (
+              <Card key={scheme.id} className="border-0 shadow-sm bg-white">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center">
+                        <Building2 className="h-6 w-6 text-slate-600" />
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-slate-900">{scheme.item_name}</h3>
+                        <p className="text-sm text-slate-500">
+                          {scheme.item_info?.loanType || "—"} • {scheme.item_info?.ticketSize || "—"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="text-sm text-slate-600">{scheme.item_info?.tenure || "—"}</p>
+                        {scheme.item_info?.riskAppetite && (
+                          <Badge variant="outline" className={
+                            scheme.item_info.riskAppetite === "Low" ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"
+                          }>
+                            {scheme.item_info.riskAppetite} Risk
+                          </Badge>
+                        )}
+                      </div>
+                      <Badge className={scheme.status === "Active" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}>
+                        {scheme.status}
+                      </Badge>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
-  );
+    );
+  };
 
   // DSA Quality View
   const renderDSAQuality = () => (
