@@ -3,10 +3,16 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: "https://go.fastrouter.ai/api/v1",
-});
+// Initialize OpenAI only if API key is available
+let openai = null;
+if (process.env.OPENAI_API_KEY) {
+  openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: "https://go.fastrouter.ai/api/v1",
+  });
+} else {
+  console.warn('OPENAI_API_KEY not set. AI analysis features will be disabled.');
+}
 
 const SYSTEM_PROMPT = `You are CredGate AI — an expert, RBI-compliant pre-underwriting assistant built specifically for Indian NBFCs and MSME lenders.
 
@@ -92,8 +98,8 @@ Output format — use this exact structure every time:
 Be concise but thorough. If data is insufficient, clearly say so and ask for specific missing items.`;
 
 export const analyzeDocument = async (text) => {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OpenAI API Key is missing');
+  if (!openai) {
+    throw new Error('OpenAI API Key is missing. AI analysis is disabled.');
   }
 
   try {

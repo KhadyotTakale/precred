@@ -665,7 +665,7 @@ const Admin = () => {
       const lines = match[0].split('\n')
         .filter(line => line.trim().startsWith('-') || line.trim().startsWith('*') || /^\d+\./.test(line.trim()))
         .map(line => line.replace(/^[\s\-\*\d\.]+/, '').trim())
-        .filter(line => line.length > 0);
+        .filter(line => line.length > 0 && !line.toLowerCase().startsWith('risks') && line.length > 5);
 
       return lines.slice(0, 5); // Limit to 5 items
     };
@@ -679,19 +679,54 @@ const Admin = () => {
     let likelihood = 50; // Default
     let riskBand = "Medium";
 
-    // Look for explicit score/likelihood in analysis
-    const scoreMatch = analysisResult.match(/(?:approval|likelihood|score|probability)[:\s]*(\d{1,3})%?/i);
-    if (scoreMatch) {
-      likelihood = parseInt(scoreMatch[1], 10);
-    } else {
-      // Infer from risk level mentioned
+    // Look for explicit score/likelihood in analysis with multiple patterns
+    const scorePatterns = [
+      /(?:approval|likelihood|score|probability|creditworthiness)[:\s]*(\d{1,3})%?/i,
+      /(\d{1,3})%\s*(?:approval|likelihood|probability)/i,
+      /(?:overall|final)\s*(?:score|rating)[:\s]*(\d{1,3})/i,
+      /(?:risk\s*score|credit\s*score)[:\s]*(\d{1,3})/i,
+      /rated?\s*(?:at\s*)?(\d{1,3})(?:%|\s*out\s*of\s*100)?/i,
+    ];
+
+    let scoreFound = false;
+    for (const pattern of scorePatterns) {
+      const match = analysisResult.match(pattern);
+      if (match) {
+        likelihood = parseInt(match[1], 10);
+        if (likelihood > 100) likelihood = 100;
+        scoreFound = true;
+        break;
+      }
+    }
+
+    if (!scoreFound) {
+      // Infer from risk level and recommendation keywords
       const lowerAnalysis = analysisResult.toLowerCase();
-      if (lowerAnalysis.includes("high risk") || lowerAnalysis.includes("reject") || lowerAnalysis.includes("decline")) {
+
+      // Check for explicit risk assessment
+      if (lowerAnalysis.includes("high risk") || lowerAnalysis.includes("reject") ||
+        lowerAnalysis.includes("decline") || lowerAnalysis.includes("not recommended") ||
+        lowerAnalysis.includes("significant concerns")) {
         likelihood = 35;
-      } else if (lowerAnalysis.includes("low risk") || lowerAnalysis.includes("approve") || lowerAnalysis.includes("strong candidate")) {
+      } else if (lowerAnalysis.includes("low risk") || lowerAnalysis.includes("approve") ||
+        lowerAnalysis.includes("strong candidate") || lowerAnalysis.includes("recommended for approval") ||
+        lowerAnalysis.includes("favorable")) {
         likelihood = 85;
-      } else if (lowerAnalysis.includes("medium risk") || lowerAnalysis.includes("moderate")) {
+      } else if (lowerAnalysis.includes("medium risk") || lowerAnalysis.includes("moderate") ||
+        lowerAnalysis.includes("conditional") || lowerAnalysis.includes("with conditions")) {
         likelihood = 60;
+      } else if (analysisResult.length > 100) {
+        // If there's substantial analysis but no clear risk indicator, estimate based on content
+        const positiveWords = (lowerAnalysis.match(/good|strong|stable|consistent|positive|verified|valid/g) || []).length;
+        const negativeWords = (lowerAnalysis.match(/weak|poor|unstable|inconsistent|negative|missing|invalid|concern|risk/g) || []).length;
+
+        if (positiveWords > negativeWords * 2) {
+          likelihood = 78;
+        } else if (negativeWords > positiveWords * 2) {
+          likelihood = 42;
+        } else {
+          likelihood = 55;
+        }
       } else if (app?.status === "completed") {
         likelihood = 89;
       } else if (app?.status === "processing") {
