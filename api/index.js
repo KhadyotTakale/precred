@@ -4,6 +4,8 @@ import dotenv from 'dotenv';
 import path from 'path';
 import documentRoutes from './routes/documentRoutes.js';
 
+import schemeRoutes from './routes/schemeRoutes.js';
+
 // Load environment variables
 dotenv.config();
 
@@ -17,6 +19,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/documents', documentRoutes);
+app.use('/api/schemes', schemeRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
