@@ -66,6 +66,7 @@ const MemberApplications = lazy(() => import("./pages/MemberPortal/Applications"
 const ApplicationDetails = lazy(() => import("./pages/ApplicationDetails"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const NoAccess = lazy(() => import("./pages/NoAccess"));
+const DocumentUpload = lazy(() => import("./pages/DocumentUpload"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -99,8 +100,8 @@ const PageLoader = () => (
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 // Check if Clerk key is valid (not placeholder or empty)
-const isClerkEnabled = CLERK_PUBLISHABLE_KEY && 
-  CLERK_PUBLISHABLE_KEY.startsWith('pk_') && 
+const isClerkEnabled = CLERK_PUBLISHABLE_KEY &&
+  CLERK_PUBLISHABLE_KEY.startsWith('pk_') &&
   !CLERK_PUBLISHABLE_KEY.includes('your_key_here');
 
 const CustomerSyncHandler = () => {
@@ -112,13 +113,13 @@ const CustomerSyncHandler = () => {
       if (isLoaded && user && !hasSynced) {
         const email = user.primaryEmailAddress?.emailAddress || '';
         const fullName = user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim();
-        
+
         // Set the clerk user ID for all future API calls
         elegantAPI.setClerkUserId(user.id);
-        
+
         try {
           await elegantAPI.createOrUpdateCustomer(user.id, email, fullName);
-          
+
           // Delay secondary API calls to avoid rate limiting on initial load
           setTimeout(() => {
             // Pre-fetch and cache item types for faster admin experience
@@ -126,13 +127,13 @@ const CustomerSyncHandler = () => {
               // Silently fail - item types will be fetched when needed
             });
           }, 1000); // Delay 1 second after customer sync
-          
+
           // Track new member signup in Microsoft Clarity
           if (typeof window !== 'undefined' && (window as any).clarity) {
             (window as any).clarity('identify', 'user_id', user.id);
             (window as any).clarity('identify', 'user_email', email);
           }
-          
+
           setHasSynced(true);
         } catch (error) {
           console.error('Error syncing customer:', error);
@@ -202,7 +203,7 @@ const App = () => {
   // Only wrap with ClerkProvider if valid key exists
   if (isClerkEnabled) {
     return (
-      <ClerkProvider 
+      <ClerkProvider
         publishableKey={CLERK_PUBLISHABLE_KEY}
         signUpUrl="/sign-up"
         signInUrl="/sign-in"
@@ -226,79 +227,80 @@ const App = () => {
         }}
       >
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-        <QueryClientProvider client={queryClient}>
-          <ImpersonationProvider>
-            <CartProvider>
-              <TooltipProvider>
-            <ImpersonationBanner />
-                <Toaster />
-                <Sonner />
-                <RateLimitIndicator />
-                <CustomerSyncHandler />
-                <TestModeChecker />
-                <SessionMonitor checkInterval={30000} />
-              <BrowserRouter>
-                <ClarityTracker />
-                <ErrorBoundary>
-                <WorkflowProvider>
-                <Suspense fallback={<PageLoader />}>
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/sign-in" element={<SignIn />} />
-                    <Route path="/sign-up" element={<SignUp />} />
-                    <Route path="/admin" element={<Admin />} />
-                    <Route path="/guest-dashboard" element={<GuestDashboard />} />
-                    <Route path="/vendor-dashboard" element={<VendorDashboard />} />
-                    <Route path="/contributor-dashboard" element={<ContributorDashboard />} />
-                    <Route path="/event" element={<Events />} />
-                    <Route path="/event/:slug" element={<EventDetails />} />
-                    <Route path="/classes" element={<Classes />} />
-                    <Route path="/classes/:slug" element={<ClassDetails />} />
-                    <Route path="/memberships" element={<Memberships />} />
-                    <Route path="/memberships/:slug" element={<MembershipDetails />} />
-                    <Route path="/shop" element={<Shop />} />
-                    <Route path="/cart" element={<Cart />} />
-                    <Route path="/checkout/success" element={<CheckoutSuccess />} />
-                    <Route path="/checkout/cancel" element={<CheckoutCancel />} />
-                    <Route path="/order-history" element={<OrderHistory />} />
-                    <Route path="/member-portal" element={<MemberPortalLayout />}>
-                      <Route index element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_DASHBOARD} moduleType="member"><MemberDashboard /></ProtectedRoute>} />
-                      <Route path="inbox" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_INBOX} moduleType="member"><MemberInbox /></ProtectedRoute>} />
-                      <Route path="applications" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_APPLICATIONS} moduleType="member"><MemberApplications /></ProtectedRoute>} />
-                      <Route path="orders" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_ORDERS} moduleType="member"><MemberOrders /></ProtectedRoute>} />
-                      <Route path="membership" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_MEMBERSHIP} moduleType="member"><MemberMembership /></ProtectedRoute>} />
-                      <Route path="profile" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_PROFILE} moduleType="member"><MemberProfile /></ProtectedRoute>} />
-                    </Route>
-                    <Route path="/no-access" element={<NoAccess />} />
-                    <Route path="/rock-identification" element={<RockIdentification />} />
-                    <Route path="/rocks/:slug" element={<RockDetails />} />
-                    <Route path="/about" element={<About />} />
-                    <Route path="/vendors" element={<Vendors />} />
-                    <Route path="/vendors/:slug" element={<VendorDetails />} />
-                    <Route path="/application/:slug" element={<ApplicationDetails />} />
-                    <Route path="/blog" element={<Blogs />} />
-                    <Route path="/blog/:slug" element={<BlogDetails />} />
-                    <Route path="/jobs" element={<Jobs />} />
-                    <Route path="/search" element={<Search />} />
-                    <Route path="/calendar" element={<Calendar />} />
-                    <Route path="/donation" element={<Donations />} />
-                    <Route path="/donation/:slug" element={<DonationDetails />} />
-                    <Route path="/raffles" element={<Raffles />} />
-                    <Route path="/raffles/:slug" element={<RaffleDetails />} />
-                    <Route path="/newsletter" element={<Newsletters />} />
-                    <Route path="/newsletter/:slug" element={<NewsletterDetails />} />
-                    <Route path="/images" element={<Images />} />
-                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
-                </WorkflowProvider>
-                </ErrorBoundary>
-              </BrowserRouter>
-            </TooltipProvider>
-          </CartProvider>
-          </ImpersonationProvider>
-        </QueryClientProvider>
+          <QueryClientProvider client={queryClient}>
+            <ImpersonationProvider>
+              <CartProvider>
+                <TooltipProvider>
+                  <ImpersonationBanner />
+                  <Toaster />
+                  <Sonner />
+                  <RateLimitIndicator />
+                  <CustomerSyncHandler />
+                  <TestModeChecker />
+                  <SessionMonitor checkInterval={30000} />
+                  <BrowserRouter>
+                    <ClarityTracker />
+                    <ErrorBoundary>
+                      <WorkflowProvider>
+                        <Suspense fallback={<PageLoader />}>
+                          <Routes>
+                            <Route path="/" element={<Index />} />
+                            <Route path="/sign-in" element={<SignIn />} />
+                            <Route path="/sign-up" element={<SignUp />} />
+                            <Route path="/admin" element={<Admin />} />
+                            <Route path="/upload" element={<DocumentUpload />} />
+                            <Route path="/guest-dashboard" element={<GuestDashboard />} />
+                            <Route path="/vendor-dashboard" element={<VendorDashboard />} />
+                            <Route path="/contributor-dashboard" element={<ContributorDashboard />} />
+                            <Route path="/event" element={<Events />} />
+                            <Route path="/event/:slug" element={<EventDetails />} />
+                            <Route path="/classes" element={<Classes />} />
+                            <Route path="/classes/:slug" element={<ClassDetails />} />
+                            <Route path="/memberships" element={<Memberships />} />
+                            <Route path="/memberships/:slug" element={<MembershipDetails />} />
+                            <Route path="/shop" element={<Shop />} />
+                            <Route path="/cart" element={<Cart />} />
+                            <Route path="/checkout/success" element={<CheckoutSuccess />} />
+                            <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+                            <Route path="/order-history" element={<OrderHistory />} />
+                            <Route path="/member-portal" element={<MemberPortalLayout />}>
+                              <Route index element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_DASHBOARD} moduleType="member"><MemberDashboard /></ProtectedRoute>} />
+                              <Route path="inbox" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_INBOX} moduleType="member"><MemberInbox /></ProtectedRoute>} />
+                              <Route path="applications" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_APPLICATIONS} moduleType="member"><MemberApplications /></ProtectedRoute>} />
+                              <Route path="orders" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_ORDERS} moduleType="member"><MemberOrders /></ProtectedRoute>} />
+                              <Route path="membership" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_MEMBERSHIP} moduleType="member"><MemberMembership /></ProtectedRoute>} />
+                              <Route path="profile" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_PROFILE} moduleType="member"><MemberProfile /></ProtectedRoute>} />
+                            </Route>
+                            <Route path="/no-access" element={<NoAccess />} />
+                            <Route path="/rock-identification" element={<RockIdentification />} />
+                            <Route path="/rocks/:slug" element={<RockDetails />} />
+                            <Route path="/about" element={<About />} />
+                            <Route path="/vendors" element={<Vendors />} />
+                            <Route path="/vendors/:slug" element={<VendorDetails />} />
+                            <Route path="/application/:slug" element={<ApplicationDetails />} />
+                            <Route path="/blog" element={<Blogs />} />
+                            <Route path="/blog/:slug" element={<BlogDetails />} />
+                            <Route path="/jobs" element={<Jobs />} />
+                            <Route path="/search" element={<Search />} />
+                            <Route path="/calendar" element={<Calendar />} />
+                            <Route path="/donation" element={<Donations />} />
+                            <Route path="/donation/:slug" element={<DonationDetails />} />
+                            <Route path="/raffles" element={<Raffles />} />
+                            <Route path="/raffles/:slug" element={<RaffleDetails />} />
+                            <Route path="/newsletter" element={<Newsletters />} />
+                            <Route path="/newsletter/:slug" element={<NewsletterDetails />} />
+                            <Route path="/images" element={<Images />} />
+                            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                            <Route path="*" element={<NotFound />} />
+                          </Routes>
+                        </Suspense>
+                      </WorkflowProvider>
+                    </ErrorBoundary>
+                  </BrowserRouter>
+                </TooltipProvider>
+              </CartProvider>
+            </ImpersonationProvider>
+          </QueryClientProvider>
         </ThemeProvider>
       </ClerkProvider>
     );
@@ -306,76 +308,77 @@ const App = () => {
 
   return (
     <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-    <QueryClientProvider client={queryClient}>
-      <ImpersonationProvider>
-        <CartProvider>
-          <TooltipProvider>
-            <ImpersonationBanner />
-            <Toaster />
-            <Sonner />
-            <RateLimitIndicator />
-            <BrowserRouter>
-              <ClarityTracker />
-              <ErrorBoundary>
-              <WorkflowProvider>
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/sign-in" element={<SignIn />} />
-              <Route path="/sign-up" element={<SignUp />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/guest-dashboard" element={<GuestDashboard />} />
-              <Route path="/vendor-dashboard" element={<VendorDashboard />} />
-              <Route path="/contributor-dashboard" element={<ContributorDashboard />} />
-              <Route path="/event" element={<Events />} />
-              <Route path="/event/:slug" element={<EventDetails />} />
-              <Route path="/classes" element={<Classes />} />
-              <Route path="/classes/:slug" element={<ClassDetails />} />
-              <Route path="/memberships" element={<Memberships />} />
-              <Route path="/memberships/:slug" element={<MembershipDetails />} />
-              <Route path="/shop" element={<Shop />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout/success" element={<CheckoutSuccess />} />
-              <Route path="/checkout/cancel" element={<CheckoutCancel />} />
-              <Route path="/order-history" element={<OrderHistory />} />
-              <Route path="/member-portal" element={<MemberPortalLayout />}>
-                <Route index element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_DASHBOARD} moduleType="member"><MemberDashboard /></ProtectedRoute>} />
-                <Route path="inbox" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_INBOX} moduleType="member"><MemberInbox /></ProtectedRoute>} />
-                <Route path="applications" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_APPLICATIONS} moduleType="member"><MemberApplications /></ProtectedRoute>} />
-                <Route path="orders" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_ORDERS} moduleType="member"><MemberOrders /></ProtectedRoute>} />
-                <Route path="membership" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_MEMBERSHIP} moduleType="member"><MemberMembership /></ProtectedRoute>} />
-                <Route path="profile" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_PROFILE} moduleType="member"><MemberProfile /></ProtectedRoute>} />
-              </Route>
-              <Route path="/no-access" element={<NoAccess />} />
-              <Route path="/rock-identification" element={<RockIdentification />} />
-              <Route path="/rocks/:slug" element={<RockDetails />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/vendors" element={<Vendors />} />
-              <Route path="/vendors/:slug" element={<VendorDetails />} />
-              <Route path="/application/:slug" element={<ApplicationDetails />} />
-              <Route path="/blog" element={<Blogs />} />
-              <Route path="/blog/:slug" element={<BlogDetails />} />
-              <Route path="/jobs" element={<Jobs />} />
-              <Route path="/search" element={<Search />} />
-              <Route path="/calendar" element={<Calendar />} />
-              <Route path="/donation" element={<Donations />} />
-              <Route path="/donation/:slug" element={<DonationDetails />} />
-              <Route path="/raffles" element={<Raffles />} />
-              <Route path="/raffles/:slug" element={<RaffleDetails />} />
-              <Route path="/newsletter" element={<Newsletters />} />
-              <Route path="/newsletter/:slug" element={<NewsletterDetails />} />
-              <Route path="/images" element={<Images />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-              </Suspense>
-              </WorkflowProvider>
-              </ErrorBoundary>
-          </BrowserRouter>
-        </TooltipProvider>
-        </CartProvider>
-      </ImpersonationProvider>
-    </QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <ImpersonationProvider>
+          <CartProvider>
+            <TooltipProvider>
+              <ImpersonationBanner />
+              <Toaster />
+              <Sonner />
+              <RateLimitIndicator />
+              <BrowserRouter>
+                <ClarityTracker />
+                <ErrorBoundary>
+                  <WorkflowProvider>
+                    <Suspense fallback={<PageLoader />}>
+                      <Routes>
+                        <Route path="/" element={<Index />} />
+                        <Route path="/sign-in" element={<SignIn />} />
+                        <Route path="/sign-up" element={<SignUp />} />
+                        <Route path="/admin" element={<Admin />} />
+                        <Route path="/upload" element={<DocumentUpload />} />
+                        <Route path="/guest-dashboard" element={<GuestDashboard />} />
+                        <Route path="/vendor-dashboard" element={<VendorDashboard />} />
+                        <Route path="/contributor-dashboard" element={<ContributorDashboard />} />
+                        <Route path="/event" element={<Events />} />
+                        <Route path="/event/:slug" element={<EventDetails />} />
+                        <Route path="/classes" element={<Classes />} />
+                        <Route path="/classes/:slug" element={<ClassDetails />} />
+                        <Route path="/memberships" element={<Memberships />} />
+                        <Route path="/memberships/:slug" element={<MembershipDetails />} />
+                        <Route path="/shop" element={<Shop />} />
+                        <Route path="/cart" element={<Cart />} />
+                        <Route path="/checkout/success" element={<CheckoutSuccess />} />
+                        <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+                        <Route path="/order-history" element={<OrderHistory />} />
+                        <Route path="/member-portal" element={<MemberPortalLayout />}>
+                          <Route index element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_DASHBOARD} moduleType="member"><MemberDashboard /></ProtectedRoute>} />
+                          <Route path="inbox" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_INBOX} moduleType="member"><MemberInbox /></ProtectedRoute>} />
+                          <Route path="applications" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_APPLICATIONS} moduleType="member"><MemberApplications /></ProtectedRoute>} />
+                          <Route path="orders" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_ORDERS} moduleType="member"><MemberOrders /></ProtectedRoute>} />
+                          <Route path="membership" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_MEMBERSHIP} moduleType="member"><MemberMembership /></ProtectedRoute>} />
+                          <Route path="profile" element={<ProtectedRoute module={MEMBER_MODULES.MEMBER_PROFILE} moduleType="member"><MemberProfile /></ProtectedRoute>} />
+                        </Route>
+                        <Route path="/no-access" element={<NoAccess />} />
+                        <Route path="/rock-identification" element={<RockIdentification />} />
+                        <Route path="/rocks/:slug" element={<RockDetails />} />
+                        <Route path="/about" element={<About />} />
+                        <Route path="/vendors" element={<Vendors />} />
+                        <Route path="/vendors/:slug" element={<VendorDetails />} />
+                        <Route path="/application/:slug" element={<ApplicationDetails />} />
+                        <Route path="/blog" element={<Blogs />} />
+                        <Route path="/blog/:slug" element={<BlogDetails />} />
+                        <Route path="/jobs" element={<Jobs />} />
+                        <Route path="/search" element={<Search />} />
+                        <Route path="/calendar" element={<Calendar />} />
+                        <Route path="/donation" element={<Donations />} />
+                        <Route path="/donation/:slug" element={<DonationDetails />} />
+                        <Route path="/raffles" element={<Raffles />} />
+                        <Route path="/raffles/:slug" element={<RaffleDetails />} />
+                        <Route path="/newsletter" element={<Newsletters />} />
+                        <Route path="/newsletter/:slug" element={<NewsletterDetails />} />
+                        <Route path="/images" element={<Images />} />
+                        {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </Suspense>
+                  </WorkflowProvider>
+                </ErrorBoundary>
+              </BrowserRouter>
+            </TooltipProvider>
+          </CartProvider>
+        </ImpersonationProvider>
+      </QueryClientProvider>
     </ThemeProvider>
   );
 };
