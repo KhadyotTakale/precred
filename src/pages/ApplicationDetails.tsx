@@ -24,6 +24,8 @@ import { SignaturePad } from '@/components/SignaturePad';
 import { PriceSummaryCard } from '@/components/PriceSummaryCard';
 import { migratePricingConfig, calculatePriceBreakdown } from '@/lib/pricing-utils';
 import type { FormField, FormStep, WizardConfig, StepCondition, LeadConfig } from '@/components/FormFieldBuilder';
+import { DecisionPreviewPanel } from '@/components/DecisionPreviewPanel';
+import { getDecisionPreview, type DecisionPreviewResponse } from '@/lib/decision-preview-api';
 
 interface ApplicationItem {
   id: number;
@@ -53,10 +55,10 @@ export default function ApplicationDetails() {
   const [formData, setFormData] = useState<Record<string, string | boolean>>({});
   const [showStartOverDialog, setShowStartOverDialog] = useState(false);
   const [hasSavedProgress, setHasSavedProgress] = useState(false);
-  
+
   // LocalStorage key for this application
   const getStorageKey = () => `application_progress_${slug}`;
-  
+
   // Initialize step from URL if returning from payment, otherwise check localStorage
   const getInitialStepIndex = () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -96,7 +98,9 @@ export default function ApplicationDetails() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailSentForSteps, setEmailSentForSteps] = useState<Set<string>>(new Set());
   const [dragOverFields, setDragOverFields] = useState<Record<string, boolean>>({});
-  
+  const [decisionPreview, setDecisionPreview] = useState<DecisionPreviewResponse | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
   // Fetch application by slug
   const { data: application, isLoading, error } = useQuery({
     queryKey: ['application-details', slug],
@@ -120,7 +124,7 @@ export default function ApplicationDetails() {
   const wizardConfig = application?.item_info?.wizardConfig;
   const isWizardMode = wizardConfig?.enabled && wizardConfig.steps.length > 0;
   const allSteps = wizardConfig?.steps?.sort((a, b) => a.sequence - b.sequence) || [];
-  
+
   // Campaign assignment config
   const campaignAssignmentEnabled = application?.item_info?.campaignAssignmentEnabled || false;
   const selectedCampaignIds = application?.item_info?.selectedCampaignIds || [];
@@ -132,7 +136,7 @@ export default function ApplicationDetails() {
       if (!selectedCampaignIds.length) return [];
       const response = await adminAPI.getItems('Campaign', 1, 100);
       const items = (response as any)?.data || response || [];
-      return Array.isArray(items) 
+      return Array.isArray(items)
         ? items.filter((c: any) => selectedCampaignIds.includes(c.id))
         : [];
     },
@@ -141,7 +145,7 @@ export default function ApplicationDetails() {
 
   // Generic condition evaluator - shared between steps and fields
   const evaluateConditions = useCallback((
-    conditions: StepCondition[] | undefined, 
+    conditions: StepCondition[] | undefined,
     logic: 'all' | 'any' = 'all'
   ): boolean => {
     if (!conditions || conditions.length === 0) {
@@ -150,12 +154,12 @@ export default function ApplicationDetails() {
 
     const evaluateCondition = (condition: StepCondition): boolean => {
       if (!condition.fieldName) return true; // Incomplete condition = pass
-      
+
       const fieldValue = formData[condition.fieldName];
-      const stringValue = typeof fieldValue === 'boolean' 
-        ? (fieldValue ? 'true' : 'false') 
+      const stringValue = typeof fieldValue === 'boolean'
+        ? (fieldValue ? 'true' : 'false')
         : String(fieldValue || '');
-      
+
       switch (condition.operator) {
         case 'equals':
           return stringValue === (condition.value || '');
@@ -252,11 +256,11 @@ export default function ApplicationDetails() {
   // Load saved form data from localStorage on mount
   useEffect(() => {
     if (!slug || isSubmitted) return;
-    
+
     // Don't load if we're returning from payment
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('payment')) return;
-    
+
     try {
       const saved = localStorage.getItem(getStorageKey());
       if (saved) {
@@ -280,11 +284,11 @@ export default function ApplicationDetails() {
   // Auto-save form data to localStorage
   useEffect(() => {
     if (!slug || isSubmitted) return;
-    
+
     // Don't save if form is empty
     const hasData = Object.values(formData).some(v => v !== '' && v !== false);
     if (!hasData && !capturedLeadId) return;
-    
+
     try {
       const dataToSave = {
         formData,
@@ -337,7 +341,7 @@ export default function ApplicationDetails() {
     setFieldErrors(prevErrors => {
       const newErrors: Record<string, string> = {};
       const visibleFields = formFields.filter(evaluateFieldConditions);
-      
+
       for (const field of visibleFields) {
         // Only validate if field has been touched or already has an error
         if (touchedFields[field.name] || prevErrors[field.name]) {
@@ -347,17 +351,17 @@ export default function ApplicationDetails() {
           }
         }
       }
-      
+
       // Only update if errors actually changed
       const prevKeys = Object.keys(prevErrors).sort().join(',');
       const newKeys = Object.keys(newErrors).sort().join(',');
       const prevVals = Object.values(prevErrors).sort().join(',');
       const newVals = Object.values(newErrors).sort().join(',');
-      
+
       if (prevKeys === newKeys && prevVals === newVals) {
         return prevErrors;
       }
-      
+
       return newErrors;
     });
   }, [formData, formFields, touchedFields, validateSingleFieldWithData, evaluateFieldConditions]);
@@ -403,8 +407,8 @@ export default function ApplicationDetails() {
     if (field.fileConfig?.acceptedTypes) {
       const allowedTypes = field.fileConfig.acceptedTypes.split(',').map(t => t.trim());
       const fileExtension = `.${file.name.split('.').pop()?.toLowerCase()}`;
-      const isAllowed = allowedTypes.some(t => 
-        t === '*' || 
+      const isAllowed = allowedTypes.some(t =>
+        t === '*' ||
         file.type.startsWith(t.replace('/*', '/')) ||
         t.toLowerCase() === fileExtension
       );
@@ -478,7 +482,7 @@ export default function ApplicationDetails() {
 
     try {
       const stripeConfig = step.stripeConfig;
-      
+
       // Calculate dynamic price from pricing configuration
       const priceBreakdown = calculatePriceBreakdown(
         pricingConfig,
@@ -486,13 +490,13 @@ export default function ApplicationDetails() {
         formFields,
         userOptedForPartialPayment
       );
-      
+
       // Use dynamic pricing if enabled, otherwise fall back to stripeConfig
       const useDynamicPricing = pricingConfig.enabled && priceBreakdown.total > 0;
       // Use amountDue for partial payments, otherwise use total
       const chargeAmount = useDynamicPricing ? priceBreakdown.amountDue : (stripeConfig?.priceAmount || 0);
       const totalAmount = useDynamicPricing ? priceBreakdown.total : (stripeConfig?.priceAmount || 0);
-      
+
       if (chargeAmount <= 0) {
         throw new Error('No payment amount configured');
       }
@@ -510,17 +514,17 @@ export default function ApplicationDetails() {
       if (useDynamicPricing) {
         // Check if partial payment is enabled
         const isPartialPayment = priceBreakdown.partialPayment?.enabled && priceBreakdown.balanceRemaining > 0;
-        
+
         if (isPartialPayment) {
           // For partial payments, create a single line item for the deposit
           const partialType = priceBreakdown.partialPayment?.type;
-          const effectiveType = partialType === 'user_selected' 
-            ? priceBreakdown.partialPayment?.userSelectedType 
+          const effectiveType = partialType === 'user_selected'
+            ? priceBreakdown.partialPayment?.userSelectedType
             : partialType;
           const depositLabel = effectiveType === 'percentage'
             ? `Deposit (${priceBreakdown.partialPayment?.value}%)`
             : 'Deposit';
-          
+
           lineItems.push({
             price_data: {
               currency: stripeConfig?.currency || 'usd',
@@ -591,7 +595,7 @@ export default function ApplicationDetails() {
 
       // Use the submitted application ID (bookings_id) if available
       const bookingsId = submittedApplicationId || parseInt(sessionStorage.getItem('submitted_application_id') || '0', 10) || undefined;
-      
+
       const response = await elegantAPI.createStripeCheckoutSession(
         lineItems,
         successUrl,
@@ -666,7 +670,7 @@ export default function ApplicationDetails() {
     setIsProcessingLead(true);
 
     try {
-    // Build the lead payload ONLY from configured fields in the form builder
+      // Build the lead payload ONLY from configured fields in the form builder
       // Do not add any extra fields - strictly use what's configured
       const excludedFieldTypes = ['file_upload', 'signature', 'readonly_text', 'html_content', 'file'];
       const excludedFieldNamePatterns = ['file', 'upload', 'signature', 'attachment', 'document', 'image'];
@@ -743,7 +747,7 @@ export default function ApplicationDetails() {
   useEffect(() => {
     // Prevent duplicate handling
     if (paymentHandled.current) return;
-    
+
     // Wait for application to load before handling payment return
     if (!application || steps.length === 0) return;
 
@@ -753,7 +757,7 @@ export default function ApplicationDetails() {
 
     if (paymentStatus === 'success' && stepParam) {
       paymentHandled.current = true;
-      
+
       // Restore form data
       const savedFormData = sessionStorage.getItem('application_form_data');
       if (savedFormData) {
@@ -768,7 +772,7 @@ export default function ApplicationDetails() {
 
       // Clean URL
       window.history.replaceState({}, '', `/application/${slug}`);
-      
+
       // Clean up sessionStorage
       sessionStorage.removeItem('application_form_data');
       sessionStorage.removeItem('application_id');
@@ -781,7 +785,7 @@ export default function ApplicationDetails() {
       });
     } else if (paymentStatus === 'cancel') {
       paymentHandled.current = true;
-      
+
       // Restore form data on cancel too
       const savedFormData = sessionStorage.getItem('application_form_data');
       if (savedFormData) {
@@ -831,7 +835,7 @@ export default function ApplicationDetails() {
         description: 'Please fix the highlighted fields before continuing.',
         variant: 'destructive',
       });
-      
+
       // Focus on the first field with an error
       if (firstErrorFieldName) {
         setTimeout(() => {
@@ -842,7 +846,7 @@ export default function ApplicationDetails() {
           }
         }, 100);
       }
-      
+
       return false;
     }
 
@@ -910,24 +914,24 @@ export default function ApplicationDetails() {
   const handleSendEmail = useCallback(async (step: FormStep) => {
     const emailConfig = step.emailConfig;
     if (!emailConfig || emailSentForSteps.has(step.id) || isSendingEmail) return;
-    
+
     setIsSendingEmail(true);
-    
+
     // Mark as attempted immediately to prevent retries (only try once)
     setEmailSentForSteps(prev => new Set([...prev, step.id]));
-    
+
     try {
       const fromEmail = replacePlaceholdersInText(emailConfig.from);
       const toEmailsRaw = replacePlaceholdersInText(emailConfig.to);
       const subject = replacePlaceholdersInText(emailConfig.subject);
       const htmlBody = replacePlaceholdersInText(emailConfig.htmlBody);
       const messageStream = emailConfig.messageStream || 'broadcast';
-      
+
       // Split comma-separated emails and trim whitespace
       const toEmails = toEmailsRaw.split(',').map(email => email.trim()).filter(email => email.length > 0);
-      
+
       console.log(`📧 Sending ${toEmails.length} email(s) to:`, toEmails);
-      
+
       // Send individual email to each recipient
       const emailPromises = toEmails.map(toEmail => {
         const emailPayload = {
@@ -940,12 +944,12 @@ export default function ApplicationDetails() {
         console.log('📧 Sending email to:', toEmail);
         return adminAPI.sendSimpleEmail(emailPayload);
       });
-      
+
       await Promise.all(emailPromises);
-      
+
       toast({
         title: 'Email Sent',
-        description: toEmails.length > 1 
+        description: toEmails.length > 1
           ? `Notification emails sent to ${toEmails.length} recipients.`
           : 'Notification email has been sent successfully.',
       });
@@ -975,6 +979,40 @@ export default function ApplicationDetails() {
     }
   }, [currentStep, emailSentForSteps, isSendingEmail, handleSendEmail]);
 
+  // Auto-fetch decision preview when decision_preview step is reached
+  useEffect(() => {
+    const fetchDecisionPreview = async () => {
+      if (currentStep?.type !== 'decision_preview' || !user || isLoadingPreview || decisionPreview) {
+        return;
+      }
+
+      setIsLoadingPreview(true);
+      try {
+        const apiEndpoint = currentStep.decisionPreviewConfig?.apiEndpoint || '/decision-preview';
+        const response = await getDecisionPreview(
+          {
+            formData: formData as Record<string, any>,
+            applicationId: application?.id,
+          },
+          user.id,
+          apiEndpoint
+        );
+        setDecisionPreview(response);
+      } catch (error) {
+        console.error('Failed to fetch decision preview:', error);
+        toast({
+          title: 'Preview Error',
+          description: 'Could not load decision preview. Showing estimated results.',
+          variant: 'destructive',
+        });
+      } finally {
+        setIsLoadingPreview(false);
+      }
+    };
+
+    fetchDecisionPreview();
+  }, [currentStep, user, formData, application?.id, isLoadingPreview, decisionPreview, toast]);
+
   // Show loading state while checking authentication (after all hooks are declared)
   if (!isLoaded) {
     return (
@@ -992,7 +1030,7 @@ export default function ApplicationDetails() {
 
   const handleRequestSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    
+
     if (!user || !application) {
       toast({
         title: 'Error',
@@ -1041,7 +1079,7 @@ export default function ApplicationDetails() {
                   }
                 }
               });
-              
+
               const leadResponse = await adminAPI.createLead(
                 { lead_payload: leadPayload, email: emailValue, status: 'new' },
                 user.id
@@ -1086,7 +1124,7 @@ export default function ApplicationDetails() {
       console.log('Creating application with payload:', applicationPayload);
       const applicationResponse = await elegantAPI.post('/application', applicationPayload, user.id);
       console.log('Application created:', applicationResponse);
-      
+
       // Store the submitted application ID for use in Stripe checkout
       const createdAppId = (applicationResponse as { id?: number })?.id;
       if (createdAppId) {
@@ -1098,7 +1136,7 @@ export default function ApplicationDetails() {
       if (leadsId && application.item_info?.campaignAssignmentEnabled && application.item_info?.selectedCampaignIds?.length) {
         const campaignIds = application.item_info.selectedCampaignIds;
         console.log('Assigning lead to campaigns:', campaignIds);
-        
+
         for (const campaignId of campaignIds) {
           try {
             await adminAPI.assignLeadToCampaign(campaignId, leadsId, user.id);
@@ -1248,7 +1286,7 @@ export default function ApplicationDetails() {
                 setTouchedFields(prev => ({ ...prev, [field.name]: true }));
               }}
             >
-              <SelectTrigger 
+              <SelectTrigger
                 className={showError ? 'border-destructive focus:ring-destructive' : ''}
                 aria-invalid={showError ? 'true' : 'false'}
                 aria-describedby={showError ? `${field.name}-error` : undefined}
@@ -1313,10 +1351,10 @@ export default function ApplicationDetails() {
         return (
           <div key={field.id} className="space-y-2">
             {field.label && <Label>{field.label}</Label>}
-            <div 
+            <div
               className="prose prose-sm max-w-none dark:prose-invert break-words overflow-hidden [&_table]:w-full [&_table]:table-fixed [&_table]:overflow-x-auto [&_img]:max-w-full [&_img]:h-auto [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap"
-              dangerouslySetInnerHTML={{ 
-                __html: replacePlaceholders(field.content || '', formData) 
+              dangerouslySetInnerHTML={{
+                __html: replacePlaceholders(field.content || '', formData)
               }}
             />
           </div>
@@ -1326,10 +1364,10 @@ export default function ApplicationDetails() {
         return (
           <div key={field.id} className="space-y-3">
             {field.content && (
-              <div 
+              <div
                 className={`prose prose-sm max-w-none dark:prose-invert border rounded-md p-3 sm:p-4 bg-muted/50 max-h-48 overflow-y-auto break-words [&_table]:w-full [&_table]:table-fixed [&_img]:max-w-full [&_img]:h-auto [&_pre]:overflow-x-auto [&_pre]:whitespace-pre-wrap ${showError ? 'border-destructive' : ''}`}
-                dangerouslySetInnerHTML={{ 
-                  __html: replacePlaceholders(field.content, formData) 
+                dangerouslySetInnerHTML={{
+                  __html: replacePlaceholders(field.content, formData)
                 }}
               />
             )}
@@ -1391,7 +1429,7 @@ export default function ApplicationDetails() {
         const isDragOver = dragOverFields[field.name];
         const uploadButtonText = field.placeholder || 'Upload File';
         const fileInputId = `file-input-${field.name}`;
-        
+
         const handleDragOver = (e: React.DragEvent) => {
           e.preventDefault();
           e.stopPropagation();
@@ -1399,43 +1437,42 @@ export default function ApplicationDetails() {
             setDragOverFields(prev => ({ ...prev, [field.name]: true }));
           }
         };
-        
+
         const handleDragLeave = (e: React.DragEvent) => {
           e.preventDefault();
           e.stopPropagation();
           setDragOverFields(prev => ({ ...prev, [field.name]: false }));
         };
-        
+
         const handleDrop = (e: React.DragEvent) => {
           e.preventDefault();
           e.stopPropagation();
           setDragOverFields(prev => ({ ...prev, [field.name]: false }));
-          
+
           if (isUploading) return;
-          
+
           const droppedFile = e.dataTransfer.files[0];
           if (droppedFile) {
             handleFileUpload(field.name, droppedFile, field);
             setTouchedFields(prev => ({ ...prev, [field.name]: true }));
           }
         };
-        
+
         return (
           <div key={field.id} className="space-y-2">
             <Label htmlFor={field.name} className={showError ? 'text-destructive' : ''}>
               {field.label}
               {field.required && <span className="text-destructive ml-1">*</span>}
             </Label>
-            <div 
-              className={`relative border-2 border-dashed rounded-lg p-6 transition-all cursor-pointer ${
-                isDragOver
-                  ? 'border-primary bg-primary/10 scale-[1.02]'
-                  : showError 
-                    ? 'border-destructive bg-destructive/5' 
-                    : hasFile 
-                      ? 'border-green-500 bg-green-50 dark:bg-green-950/20' 
-                      : 'border-muted-foreground/25 hover:border-primary/50 bg-muted/30'
-              }`}
+            <div
+              className={`relative border-2 border-dashed rounded-lg p-6 transition-all cursor-pointer ${isDragOver
+                ? 'border-primary bg-primary/10 scale-[1.02]'
+                : showError
+                  ? 'border-destructive bg-destructive/5'
+                  : hasFile
+                    ? 'border-green-500 bg-green-50 dark:bg-green-950/20'
+                    : 'border-muted-foreground/25 hover:border-primary/50 bg-muted/30'
+                }`}
               onDragOver={handleDragOver}
               onDragEnter={handleDragOver}
               onDragLeave={handleDragLeave}
@@ -1552,12 +1589,12 @@ export default function ApplicationDetails() {
         const displayTotal = useDynamicPricing ? checkoutBreakdown.total : (stripeConfig?.priceAmount || 0);
         const displayAmountDue = useDynamicPricing ? checkoutBreakdown.amountDue : displayTotal;
         const isPartialPayment = checkoutBreakdown.partialPayment?.enabled && checkoutBreakdown.balanceRemaining > 0;
-        
+
         return (
           <div className="text-center py-8 space-y-4">
             <CreditCard className="h-16 w-16 mx-auto text-primary" />
             <h3 className="text-lg font-semibold">Payment Required</h3>
-            
+
             {/* Show dynamic pricing breakdown if enabled */}
             {useDynamicPricing ? (
               <div className="bg-muted/50 rounded-lg p-4 max-w-md mx-auto text-left">
@@ -1565,7 +1602,7 @@ export default function ApplicationDetails() {
                 {stripeConfig?.productDescription && (
                   <p className="text-sm text-muted-foreground text-center mb-4">{stripeConfig.productDescription}</p>
                 )}
-                
+
                 <div className="space-y-2 border-t pt-3">
                   {checkoutBreakdown.basePrice > 0 && (
                     <div className="flex justify-between text-sm">
@@ -1590,7 +1627,7 @@ export default function ApplicationDetails() {
                     <span>Total</span>
                     <span className={isPartialPayment ? 'line-through' : 'text-primary'}>${displayTotal.toFixed(2)}</span>
                   </div>
-                  
+
                   {/* Partial Payment Display */}
                   {isPartialPayment && (
                     <>
@@ -1598,7 +1635,7 @@ export default function ApplicationDetails() {
                         <div className="flex flex-col">
                           <span className="font-bold text-amber-700 dark:text-amber-400">Due Today</span>
                           <span className="text-xs text-amber-600 dark:text-amber-500">
-                            {checkoutBreakdown.partialPayment?.type === 'percentage' 
+                            {checkoutBreakdown.partialPayment?.type === 'percentage'
                               ? `${checkoutBreakdown.partialPayment.value}% deposit`
                               : 'Fixed deposit'}
                           </span>
@@ -1626,14 +1663,14 @@ export default function ApplicationDetails() {
                 </p>
               </div>
             ) : null}
-            
+
             <p className="text-muted-foreground">
               {stripeConfig?.successMessage || 'Please complete payment to proceed with your application.'}
             </p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center mt-4">
               {currentStepIndex > 0 && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={handlePrevStep}
                   disabled={isProcessingPayment}
                   size="lg"
@@ -1642,8 +1679,8 @@ export default function ApplicationDetails() {
                   Back
                 </Button>
               )}
-              <Button 
-                onClick={() => handleStripeCheckout(step)} 
+              <Button
+                onClick={() => handleStripeCheckout(step)}
                 disabled={isProcessingPayment || displayAmountDue <= 0}
                 size="lg"
               >
@@ -1668,7 +1705,7 @@ export default function ApplicationDetails() {
         const emailFieldName = leadConfig?.emailField;
         const hasEmail = emailFieldName && formData[emailFieldName];
         const payloadFieldNames = leadConfig?.payloadFields || [];
-        
+
         return (
           <div className="text-center py-8 space-y-4">
             <UserPlus className="h-16 w-16 mx-auto text-teal-600" />
@@ -1676,7 +1713,7 @@ export default function ApplicationDetails() {
             <p className="text-muted-foreground max-w-md mx-auto">
               {step.description || 'Your contact information will be saved before proceeding.'}
             </p>
-            
+
             {/* Show summary of captured fields */}
             <div className="bg-muted/50 rounded-lg p-4 max-w-md mx-auto text-left">
               <p className="text-sm font-medium mb-2">Information to be saved:</p>
@@ -1710,9 +1747,9 @@ export default function ApplicationDetails() {
                 )}
               </div>
             </div>
-            
-            <Button 
-              onClick={() => handleLeadCapture(step)} 
+
+            <Button
+              onClick={() => handleLeadCapture(step)}
               disabled={isProcessingLead || !hasEmail}
               className="mt-4 bg-teal-600 hover:bg-teal-700"
               size="lg"
@@ -1729,7 +1766,7 @@ export default function ApplicationDetails() {
                 </>
               )}
             </Button>
-            
+
             {!hasEmail && (
               <p className="text-sm text-amber-600">
                 Please provide an email address in the previous step to continue.
@@ -1746,7 +1783,7 @@ export default function ApplicationDetails() {
             <p className="text-muted-foreground max-w-md mx-auto">
               {step.description || 'Please review your information and click submit to complete your application.'}
             </p>
-            
+
             {/* Campaign Assignment Indicator */}
             {campaignAssignmentEnabled && campaignsForDisplay && campaignsForDisplay.length > 0 && (
               <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 max-w-md mx-auto">
@@ -1756,7 +1793,7 @@ export default function ApplicationDetails() {
                 </div>
                 <div className="flex flex-wrap justify-center gap-2">
                   {campaignsForDisplay.map((campaign: any) => (
-                    <span 
+                    <span
                       key={campaign.id}
                       className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
                     >
@@ -1769,9 +1806,9 @@ export default function ApplicationDetails() {
                 </p>
               </div>
             )}
-            
-            <Button 
-              onClick={() => handleRequestSubmit()} 
+
+            <Button
+              onClick={() => handleRequestSubmit()}
               disabled={isSubmitting}
               className="mt-4 bg-blue-600 hover:bg-blue-700"
               size="lg"
@@ -1794,7 +1831,7 @@ export default function ApplicationDetails() {
       case 'send_email':
         const emailConfig = step.emailConfig;
         const hasEmailSent = emailSentForSteps.has(step.id);
-        
+
         return (
           <div className="text-center py-8 space-y-4">
             {isSendingEmail ? (
@@ -1849,6 +1886,21 @@ export default function ApplicationDetails() {
           </div>
         );
 
+      case 'decision_preview':
+        const previewConfig = step.decisionPreviewConfig;
+        return (
+          <DecisionPreviewPanel
+            data={decisionPreview}
+            isLoading={isLoadingPreview}
+            onProceed={() => {
+              if (currentStepIndex < steps.length - 1) {
+                setCurrentStepIndex(prev => prev + 1);
+              }
+            }}
+            ctaButtonText={previewConfig?.ctaButtonText || 'Send to Underwriting'}
+          />
+        );
+
       default:
         return null;
     }
@@ -1883,13 +1935,12 @@ export default function ApplicationDetails() {
             {steps.map((step, index) => (
               <div
                 key={step.id}
-                className={`flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
-                  index === currentStepIndex
-                    ? 'bg-primary text-primary-foreground'
-                    : index < currentStepIndex || isSubmitted
+                className={`flex items-center gap-1 px-2 sm:px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${index === currentStepIndex
+                  ? 'bg-primary text-primary-foreground'
+                  : index < currentStepIndex || isSubmitted
                     ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
                     : 'bg-muted text-muted-foreground'
-                }`}
+                  }`}
               >
                 {index < currentStepIndex || (isSubmitted && index <= currentStepIndex) ? (
                   <CheckCircle2 className="h-3 w-3 shrink-0" />
@@ -1952,7 +2003,7 @@ export default function ApplicationDetails() {
                   Cancel
                 </Button>
               ) : null}
-              
+
               {/* Start Over button - show if there's saved progress or data */}
               {hasSavedProgress && !isSubmitted && (
                 <AlertDialog open={showStartOverDialog} onOpenChange={setShowStartOverDialog}>
@@ -1983,12 +2034,12 @@ export default function ApplicationDetails() {
                 </AlertDialog>
               )}
             </div>
-            
+
             {/* Forward navigation - hide for stripe_checkout, lead_capture, and submission since they have their own buttons */}
             {currentStep.type !== 'stripe_checkout' && currentStep.type !== 'lead_capture' && currentStep.type !== 'submission' && (
               isLastFieldsStep ? (
-                <Button 
-                  onClick={() => handleRequestSubmit()} 
+                <Button
+                  onClick={() => handleRequestSubmit()}
                   disabled={isSubmitting}
                   className="w-full sm:w-auto"
                 >
@@ -2041,7 +2092,7 @@ export default function ApplicationDetails() {
           >
             Cancel
           </Button>
-          
+
           {/* Start Over button for simple form */}
           {hasSavedProgress && (
             <AlertDialog open={showStartOverDialog} onOpenChange={setShowStartOverDialog}>
@@ -2071,7 +2122,7 @@ export default function ApplicationDetails() {
               </AlertDialogContent>
             </AlertDialog>
           )}
-          
+
           <Button type="submit" disabled={isSubmitting} className="ml-auto">
             {isSubmitting ? 'Submitting...' : 'Submit Application'}
           </Button>
@@ -2152,7 +2203,7 @@ export default function ApplicationDetails() {
                     )}
                   </div>
                 </div>
-                
+
                 {/* Saved progress indicator */}
                 {hasSavedProgress && !isSubmitted && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
@@ -2192,7 +2243,7 @@ export default function ApplicationDetails() {
           </div>
         </div>
       </div>
-      
+
     </>
   );
 }

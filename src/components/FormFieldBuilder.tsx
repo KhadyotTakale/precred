@@ -73,11 +73,16 @@ export interface ConfirmationConfig {
   actionButtonUrl?: string;
 }
 
+export interface DecisionPreviewConfig {
+  apiEndpoint?: string; // defaults to '/decision-preview'
+  ctaButtonText?: string; // defaults to 'Send to Underwriting'
+}
+
 export interface FormStep {
   id: string;
   title: string;
   description?: string;
-  type: 'fields' | 'stripe_checkout' | 'confirmation' | 'lead_capture' | 'submission' | 'send_email';
+  type: 'fields' | 'stripe_checkout' | 'confirmation' | 'lead_capture' | 'submission' | 'send_email' | 'decision_preview';
   sequence: number;
   conditions?: StepCondition[]; // Conditions that must be met to show this step
   conditionLogic?: 'all' | 'any'; // all = AND, any = OR (default: all)
@@ -95,6 +100,7 @@ export interface FormStep {
   leadConfig?: LeadConfig;
   emailConfig?: EmailConfig;
   confirmationConfig?: ConfirmationConfig;
+  decisionPreviewConfig?: DecisionPreviewConfig;
 }
 
 export interface WizardConfig {
@@ -776,6 +782,8 @@ function SortableStepItem({ step, fields, allFields, onUpdateStep, onDeleteStep,
         return <FileText className="h-4 w-4" />;
       case 'send_email':
         return <Mail className="h-4 w-4" />;
+      case 'decision_preview':
+        return <Eye className="h-4 w-4" />;
       default:
         return <Layers className="h-4 w-4" />;
     }
@@ -793,6 +801,8 @@ function SortableStepItem({ step, fields, allFields, onUpdateStep, onDeleteStep,
         return <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">Submission</Badge>;
       case 'send_email':
         return <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">Send Email</Badge>;
+      case 'decision_preview':
+        return <Badge variant="secondary" className="bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">Decision Preview</Badge>;
       default:
         return <Badge variant="secondary">Form Fields</Badge>;
     }
@@ -2242,6 +2252,10 @@ export function FormFieldBuilder({ fields, onChange, wizardConfig, onWizardConfi
                 <Button type="button" variant="outline" size="sm" onClick={() => addStep('send_email')} className="text-orange-600 border-orange-200 hover:bg-orange-50 justify-start">
                   <Mail className="h-4 w-4 mr-1 shrink-0" />
                   <span className="truncate">Send Email</span>
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => addStep('decision_preview')} className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 justify-start">
+                  <Eye className="h-4 w-4 mr-1 shrink-0" />
+                  <span className="truncate">Decision Preview</span>
                 </Button>
               </div>
 
