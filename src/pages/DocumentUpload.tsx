@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { AnalysisResult } from '@/components/analysis/AnalysisResult';
+import { analyzeDocumentsClient, isClientAIAvailable } from '@/lib/client-ai-service';
 
 
 const DocumentUpload = () => {
@@ -58,35 +59,30 @@ const DocumentUpload = () => {
             return;
         }
 
-        setIsSubmitting(true);
-        const formData = new FormData();
+        // Check if client AI is available
+        if (!isClientAIAvailable()) {
+            toast.error("AI analysis is not configured. Please contact support.");
+            return;
+        }
 
-        Object.entries(files).forEach(([key, file]) => {
-            if (file) {
-                formData.append(key, file);
-            }
-        });
+        setIsSubmitting(true);
 
         try {
-            const response = await fetch('/api/documents/upload', {
-                method: 'POST',
-                body: formData,
-            });
+            toast.info("Analyzing documents with AI... This may take 30-60 seconds.");
 
-            if (!response.ok) {
-                throw new Error('Upload failed');
-            }
+            // Use client-side AI analysis
+            const analysisResult = await analyzeDocumentsClient(files);
 
-            const data = await response.json();
-            if (data.analysis) {
-                setAnalysis(data.analysis);
+            if (analysisResult) {
+                setAnalysis(analysisResult);
                 toast.success("Analysis complete! Please review and save the application.");
             } else {
                 toast.error("Analysis data missing from response.");
             }
         } catch (error) {
-            console.error(error);
-            toast.error("Failed to upload and analyze documents.");
+            console.error('Analysis error:', error);
+            const errorMessage = error instanceof Error ? error.message : "Failed to analyze documents.";
+            toast.error(errorMessage);
         } finally {
             setIsSubmitting(false);
         }
