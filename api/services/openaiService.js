@@ -1,7 +1,14 @@
 import OpenAI from 'openai';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+// Get directory path for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables from project root
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // Initialize OpenAI only if API key is available
 let openai = null;

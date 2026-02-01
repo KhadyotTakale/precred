@@ -82,10 +82,13 @@ const BusinessVerificationCard = ({
     };
 
     const verifyBusiness = async () => {
-        if (!businessName || !address) {
-            setError("Business name or address not available");
+        if (!businessName) {
+            setError("Business name not available");
             return;
         }
+
+        // Use businessName as fallback for address if not available
+        const searchAddress = address || businessName;
 
         setLoading(true);
         setError(null);
@@ -96,8 +99,8 @@ const BusinessVerificationCard = ({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     businessName,
-                    address,
-                    city: extractCity(address),
+                    address: searchAddress,
+                    city: extractCity(searchAddress),
                     businessType
                 })
             });
@@ -210,7 +213,7 @@ const BusinessVerificationCard = ({
                     <Button
                         onClick={verifyBusiness}
                         className="w-full bg-indigo-600 hover:bg-indigo-700"
-                        disabled={!businessName || !address}
+                        disabled={!businessName}
                     >
                         <Search className="h-4 w-4 mr-2" />
                         Verify Business Online Presence
@@ -864,7 +867,7 @@ const AdminApplicationDetails = () => {
 
                 {/* Business Verification Section */}
                 <BusinessVerificationCard
-                    businessName={parsedAnalysis?.keyFacts?.businessType?.split('(')[0]?.trim() || customerName}
+                    businessName={parsedAnalysis?.keyFacts?.businessType?.split('(')[0]?.trim() || customerName || "Business"}
                     address={parsedAnalysis?.keyFacts?.address || ""}
                     businessType={parsedAnalysis?.keyFacts?.classification || ""}
                 />
